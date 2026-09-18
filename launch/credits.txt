@@ -1,0 +1,47 @@
+Vibe Check build credits — proposed wording for review
+Prepared 18 September 2026. No final review is claimed.
+
+Current facts
+
+Ashley Raiteri supplied the service requirements, copy direction, and review
+feedback. Codex performed substantial implementation work as well as copy
+editing on the current site. The coordinating model for this recorded work
+is identified as GPT-6; a more specific variant is not established here.
+
+Project-specific session metadata verifies earlier landing-page work by
+Claude, with the recorded model identifier claude-fable-5-1. The record
+includes a successful source write and promotion to the earlier landing page
+on 17 September 2026. This establishes that contribution, not sole authorship
+of every original asset or the current rewritten service. No public product
+name is established for that identifier; do not rename it Sonnet or Opus.
+Do not describe Codex's role as copy editing alone when it also implemented
+application behavior.
+
+Proposed interim credit
+
+Earlier site implementation: Claude (recorded model ID: claude-fable-5-1).
+Current implementation and copy editing: Codex (GPT-6).
+Review by Ashley Raiteri: pending.
+
+Proposed final credit, after Ashley completes review
+
+Earlier site implementation: Claude (recorded model ID: claude-fable-5-1).
+Reworked, implemented, and copy edited with Codex (GPT-6).
+Reviewed by Ashley Raiteri.
+
+Use the review credit only for artifacts Ashley has actually reviewed.
+Review of business wording
+does not automatically establish review of code, security, or every provider
+integration. This credit is not an endorsement by Anthropic or OpenAI.
+
+Evidence to record before merging final credits
+
+Claude contribution and exact model: Earlier landing page; claude-fable-5-1.
+Source/date for attribution: Project session model and successful source-edit
+metadata, 17 September 2026, verified during preparation on 18 September 2026.
+Codex contribution and model: Current implementation and copy editing; GPT-6.
+Artifact/revision reviewed by Ashley:
+Review completion date:
+
+These notes contain no customer material, credentials, or private operator
+paths. They are proposed public review content, separate from the live site.
