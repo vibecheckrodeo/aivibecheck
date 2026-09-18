@@ -1,0 +1,284 @@
+VIBE CHECK — REDDIT DRAFTS AND HACKER NEWS BRIEFING
+Prepared 18 September 2026 for Ashley Raiteri's review.
+Status: editorial drafts. Nothing in this file has been posted or sent.
+
+EDITORIAL DECISIONS
+
+Lead with Ashley and the specific problem the service helps with. Say plainly
+that this is Ashley's paid service. Do not dress up an advertisement as an
+unaffiliated recommendation, a customer story, or a neutral research question.
+
+The launch copy below describes the intended paid service. It is held until
+live payment, a real available appointment, and the private return journey
+have been verified. At drafting time, registration works, but Stripe setup
+and provider connections are still in progress. There is a separate draft
+for sharing the work before payments are ready.
+
+Do not add claims about automatic GitHub, Replit, Lovable, or Figma access
+until the specific connection and revocation behavior has been tested.
+Do not equate deleting a stored link with revoking a separate invitation.
+
+Earlier landing-page work is verified in project session metadata under the
+recorded Claude model identifier claude-fable-5-1. Preserve that identifier;
+do not invent a Sonnet or Opus product-name mapping. Current implementation
+and copy editing were done with Codex (GPT-6), so copy editing alone is an
+incomplete credit. "Reviewed by Ashley Raiteri" belongs in published copy
+only after Ashley has reviewed that artifact. Final review remains pending.
+
+REDDIT: WHERE THIS FITS
+
+1. r/SideProject — first choice for one clearly disclosed project post.
+   The visible sidebar welcomes side projects and constructive feedback. It
+   asks project/startup link submissions to use project name plus a short
+   description. The titles below follow that format. Inspect the live
+   submission screen for any additional rules or required flair before
+   posting; the newer rules page did not expose rule text in this research.
+   Source: https://old.reddit.com/r/SideProject/
+
+2. r/vibecoding — relevant audience, but hold for moderator direction.
+   The moderator's published rules distinguish projects, developer tools,
+   and general discussion. Tool promotion requires approval through the
+   linked X community; project posts need useful build/process detail.
+   A paid review service does not neatly fit those examples. Ask which route
+   applies before publishing. Do not relabel the service as general advice
+   to bypass the promotion rule. The dated announcement is evidence of the
+   published policy, not proof that moderators will approve this service.
+   Source: https://www.reddit.com/r/vibecoding/comments/1mp8oyw/important_new_rules_update_on_selfpromotion/
+
+3. r/startups — use the active Share Your Startup thread only.
+   Recent moderator removals direct promotion to that thread. A relevant
+   thread was visible during research; verify which one is pinned on the
+   day. The comment draft below needs Ashley's location and launch state.
+   Do not create a standalone service advertisement.
+   Thread found: https://www.reddit.com/r/startups/comments/1utpfsi/share_your_startup_quarterly_post/
+   Moderator enforcement: https://www.reddit.com/r/startups/comments/1wdrunz/removed/
+
+4. r/sideprojects — possible alternative, not a second copy of the same post.
+   Its moderator announcement allows project advertising with limits on
+   repetition, requires flair, and rejects fake customer endorsements and
+   posts whose purpose is to move readers into a sales DM. Confirm current
+   rules before using it. The r/SideProject draft can be adapted for a
+   distinct technical discussion if that is welcome.
+   Source: https://www.reddit.com/r/sideprojects/comments/1ld5xve/my_side_project_rsideprojects_new_rules_and_an/
+
+5. r/webdev — do not use for the service launch.
+   The visible rules prohibit commercial promotion and solicitation.
+   Showoff Saturday is a limit on project posts, not blanket permission for
+   a paid service advertisement. A later source-code discussion would need
+   to stand on its own and still satisfy the current rules.
+   Source: https://old.reddit.com/r/webdev/
+
+Across Reddit, use Ashley's own established account and disclose ownership.
+Choose communities where Ashley can participate in the discussion. Do not
+mass-post the variants, automate replies, ask for upvotes, or send sales DMs
+to people who comment. Reddit explicitly prohibits repeated or unsolicited
+mass engagement, including repetitive promotional posting.
+Source: https://support.reddithelp.com/hc/en-us/articles/360043504051-Spam
+
+REDDIT DRAFT A — SERVICE LAUNCH, r/SideProject
+Use after paid launch verification. Choose A or B; do not post both.
+
+Title:
+Vibe Check — project reviews with a human when your coding agent gets stuck
+
+Body:
+I'm Ashley Raiteri. I've been programming since 1980 and have spent my
+career as a CTO building and fixing software. Vibe Check is my new project:
+short reviews for people building with coding agents.
+
+Bring one problem. Something won't deploy, a change broke the app, or
+you're unsure what to ask the agent to check next. I'll look at the project
+with you and explain what I'd investigate or change.
+
+You describe the problem in 1,000 words or less and share the project first.
+I review the request and agree on a scope before asking for a $25 deposit.
+Then you choose an available Zoom appointment within the next week.
+Reviews are $25 per 15 minutes, Monday–Saturday, 1–6pm Eastern.
+
+This is a focused review. It doesn't include implementation, a full audit,
+security certification, or a written report. The agreed scope is fixed;
+payments aren't refundable.
+
+The site is here: https://vibecheck.rodeo
+
+I'd like feedback on the intake: is it clear what I need to see, and what
+you should expect from a short call? Please don't put private project links
+or credentials in the comments.
+
+REDDIT DRAFT B — THE INTAKE DECISION, r/SideProject
+Use after paid launch verification. Alternative to A.
+
+Title:
+Vibe Check — a project-review service that starts with the project
+
+Body:
+The first version of my review site led with a payment card. Looking at it,
+I realised I was asking people to pay before I knew what they needed.
+
+I've changed the order. Tell me who you are, describe the problem, and show
+me the project. I look at the request first. If I can help, we agree on the
+scope, you pay a $25 deposit, and you book an available time in the next week.
+
+I'm Ashley Raiteri, and I'll be doing the reviews. They're for people
+building with coding agents who need another pair of eyes on one problem.
+The rate is $25 per 15 minutes on Zoom.
+
+One less visible part of the site is access cleanup. The unpaid-access
+deadline starts when you confirm you've shared everything I need, not when
+you first open the form. It's seven days, and editing your brief doesn't
+restart it. The policy is about removing our access; your project stays
+yours.
+
+https://vibecheck.rodeo
+
+The part I'd most like feedback on is sharing access. What would you need
+to know before letting someone look at your project?
+
+REDDIT DRAFT C — CURRENT WORK, BEFORE PAYMENTS ARE READY
+Use only if sharing progress now. Recheck the status sentence on posting day.
+
+Title:
+Vibe Check — building the intake for short project reviews
+
+Body:
+I'm building Vibe Check, a service where I look at projects people are
+making with coding agents. I'm Ashley Raiteri, and the review is with me.
+
+The site initially made paying look like the first useful thing to do.
+I've changed it to start with the actual problem: who you are, what you're
+building, and what I need to see. I review that before asking for money.
+
+Registration and saving a project brief work. Payments and project-account
+connections are still being set up, so this isn't an invitation to book
+a paid review yet. The intended rate is $25 per 15 minutes on Zoom.
+
+The site: https://vibecheck.rodeo
+
+I'd appreciate feedback on the intake and the explanation of access. You
+don't need to register or share private material to comment on the page.
+
+REDDIT DRAFT D — BUILD DETAILS, r/vibecoding
+Hold for moderator direction and verify technical claims against the release.
+
+Title:
+What changed when I made my coding-agent project-review site collect the brief first
+
+Body:
+I run Vibe Check, a paid review service for people building with coding
+agents. The site itself has been built with coding-agent help too.
+
+The first booking section asked for payment before collecting the project.
+I didn't like what that asked of the person using it. I need to see the
+problem before I can decide whether a short review will be useful.
+
+The revised flow is registration, project details, my approval, deposit,
+then an appointment. It runs on Cloudflare Pages with Functions and D1.
+
+The details that mattered most were in the state changes:
+
+- Saving an unfinished brief must not start the access deadline.
+- Confirming that all materials are shared starts a seven-day clock.
+- Editing the brief or approving it must not reset that clock.
+- The server must verify payment; returning from a checkout page isn't proof.
+- A cleanup job must check payment before expiring an unpaid request.
+
+Deleting a stored URL is also different from revoking an account invitation.
+That distinction needs to stay visible in both the implementation and the
+copy. I don't want the site promising removal that the integration can't do.
+
+https://vibecheck.rodeo
+
+If you've built a similar intake, which state transition caused trouble
+once real people started using it?
+
+Editor note: Add the verified public source-code URL only after the repository
+has been published and checked. Do not invent a repository URL, claim all
+provider integrations work, or add a client success story to this draft.
+
+REDDIT DRAFT E — r/startups PINNED THREAD COMMENT
+Complete the two bracketed facts before publication. Use the current thread.
+
+Startup name / URL: Vibe Check — https://vibecheck.rodeo
+
+Location: [Ashley to supply the business location; reviews are remote.]
+
+What it does: I review projects people are building with coding agents.
+Bring one problem and we'll look at what needs attention and what to ask
+the agent to change or check. I'm Ashley Raiteri; the review is with me.
+
+Stage / role: [Confirm current launch stage.] Founder and reviewer.
+
+How it works: Share a brief and the project first. I review the request
+before asking for a $25 deposit. After approval and payment, choose an
+available Zoom appointment within the next week. Reviews are $25 per
+15 minutes, with scope agreed before payment.
+
+What would help: Feedback on whether the intake makes it clear what to
+share and what a short review can cover.
+
+Community discount: None currently planned.
+
+HACKER NEWS — HUMAN AUTHORSHIP BRIEF, NOT SUBMISSION COPY
+
+The current HN guidelines say: "Don't post generated text or AI-edited text."
+Ashley should write the final title, introduction, and replies personally.
+Do not paste these notes into a submission or have an agent polish the HN
+text. A disclosure that AI wrote it does not remove that rule.
+Source: https://news.ycombinator.com/newsguidelines.html
+
+Best initial route: a regular link submission to a substantive public
+article explaining the intake or access design, using the article's title.
+The article needs to be useful without buying a review. Use the original
+source URL. Do not submit a fabricated Ask HN question as a service ad.
+HN permits occasional submissions of one's own work but discourages using
+the site primarily for promotion. Do not request votes, comments, or repost
+a submission to give it another chance.
+Source: https://news.ycombinator.com/newsguidelines.html
+
+Show HN is not suitable for the current service landing/registration page.
+The official guidance excludes landing pages, sign-up pages, and blog posts;
+people need something substantial they can actually try.
+Source: https://news.ycombinator.com/showhn.html
+
+Possible later Show HN route: the open-source intake application itself,
+once it is public, licensed, documented, and runnable, preferably with a
+no-registration demonstration using synthetic data. A repository alone
+does not establish that someone can use it. Present that as software other
+people can inspect and run, and explain what Ashley personally worked on.
+This is a possible fit to assess then, not a promise of HN eligibility.
+Source: https://news.ycombinator.com/showhn.html
+
+Facts available for Ashley's own introduction:
+- What the service reviews and why Ashley wants to do it.
+- Why payment moved after the brief and approval.
+- Why the seven-day clock starts at completed intake.
+- Which provider permissions are actually requested and why.
+- How access is removed, including any remaining manual work.
+- What is public source, what is operated privately, and what is unfinished.
+- Which verified roles Claude, Codex, and Ashley played in the released work.
+
+Useful material to have ready for the discussion:
+- A real technical example from this site's implementation, with no client
+  data or private request links.
+- The tested payment and expiry state transitions.
+- The public license and reproducible local run instructions.
+- An honest account of one remaining tradeoff or limitation.
+- The real build history for any model-credit question.
+
+Avoid claims about traction, outcomes, client savings, security approval,
+or time saved unless Ashley can substantiate them. This file supplies no
+customer quotes, testimonials, user counts, or revenue numbers.
+
+PUBLICATION RECORD TO COMPLETE AFTER ASHLEY'S REVIEW
+
+Selected channel and variant:
+Live rules checked on:
+Moderator approval if required:
+Ashley approved final wording on:
+Paid flow and appointment availability verified on:
+Provider claims checked against:
+Verified build-credit source:
+Published URL and date:
+
+No posting, moderator message, upvote request, or account action is authorized
+by this draft file. It is ready to be included in the launch-copy review PR.
