@@ -1,0 +1,12 @@
+The brand comparison uses the selected Butter identity and eight alternative
+palettes from the latest archived color sheet, nine-background-palettes.png.
+All nine use the original serif logotype and Georgia/Arial page typography.
+The earlier shortlist of eight distinct logotypes has not been identified.
+
+serif-palettes.webp: pixel-identical, lossless WebP of logos/archive/nine-background-palettes.png
+butter-wordmark.png: unmodified copy of the current production logo
+
+The SVG viewport selects the corresponding artwork from the original sheet.
+Butter retains its later, refined V-check. Other themes show the archived V.
+Alternate page colors approximate the concept backgrounds; the fixed Butter
+tokens remain the production baseline.

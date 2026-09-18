@@ -1,0 +1,10 @@
+neat-annotations.css
+Source: https://github.com/syabro/neat-annotations
+Revision: 12fabf0f5b2e13b9ce884f5b0d9442c1c75a594e
+Unmodified CSS; MIT license in neat-annotations-LICENSE.txt.
+
+shantell-sans-regular.woff2
+Source: Google Fonts, Shantell Sans, regular 400, Latin WOFF2, v13
+https://fonts.google.com/specimen/Shantell+Sans
+Unmodified font; SIL Open Font License in shantell-sans-LICENSE.txt.
+Both dependencies are served locally. No third-party requests are required.

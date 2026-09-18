@@ -1,0 +1,36 @@
+/* Colors and artwork from logos/archive/nine-background-palettes.png.
+   The archive uses one serif logotype across these nine color treatments. */
+:root[data-theme="ivory"] { --paper: #fcf7e7; }
+:root[data-theme="powder-blue"] { --paper: #e2effa; }
+:root[data-theme="blush"] { --paper: #f8e7ee; }
+:root[data-theme="sage"] { --paper: #e4ecd8; }
+:root[data-theme="lavender"] { --paper: #ebe6f5; }
+:root[data-theme="aqua"] { --paper: #ddf0ee; }
+:root[data-theme="sand"] { --paper: #efe6d8; }
+:root[data-theme="pearl"] { --paper: #e8ecee; }
+
+.brand-home { display: block; width: 160px; height: 80px; flex: 0 0 auto; }
+.brand-home img, .brand-home svg { width: 100%; height: 100%; object-fit: contain; }
+.brand-home svg { display: none; }
+:root[data-theme]:not([data-theme="butter"]) .brand-home img { display: none; }
+:root[data-theme]:not([data-theme="butter"]) .brand-home svg { display: block; }
+.theme-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding-block: 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.theme-controls p { margin: 0; }
+.theme-controls .theme-current { min-width: 150px; font-weight: bold; font-variant-numeric: tabular-nums; }
+.theme-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.theme-controls button { min-height: 44px; font-size: 13px; padding: 8px 12px; }
+.theme-controls .theme-previous { background: transparent; color: var(--ink); }
+.theme-controls select { width: 145px; min-height: 44px; font-size: 14px; padding: 8px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@media (max-width: 800px) {
+  .brand-home { width: 130px; height: 65px; }
+}
+@media (max-width: 580px) {
+  .theme-controls { gap: 8px; }
+  .theme-controls .theme-current { margin-left: auto; text-align: right; }
+  .theme-actions { width: 100%; justify-content: space-between; gap: 6px; }
+  .theme-controls select { width: auto; min-width: 0; flex: 1; }
+}
+@media (max-width: 380px) {
+  .brand-home { width: 114px; height: 57px; }
+}
