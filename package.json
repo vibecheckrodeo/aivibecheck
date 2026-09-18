@@ -1,0 +1,15 @@
+{
+  "name": "vibecheck",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "wrangler pages dev deploy-vibecheck",
+    "test": "node --test tests/*.test.js",
+    "check:public": "node scripts/check-public.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.135.0"
+  },
+  "license": "MIT"
+}

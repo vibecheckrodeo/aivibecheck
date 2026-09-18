@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vibecheck-rodeo",
+  "pages_build_output_dir": "./deploy-vibecheck",
+  "compatibility_date": "2026-09-18",
+  "vars": {
+    "RELEASE_SHA": "local-development",
+    "GITHUB_USERNAME": "YOUR_GITHUB_USERNAME"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibecheck-intake",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+# Markdown files must never enter this public repository, including mixed case.
+*.[mM][dD]
+
+# Local dependencies, credentials, sessions, databases, and build metadata.
+node_modules/
+.wrangler/
+.secrets/
+.secret/
+secrets/
+private-ops/
+.env*
+.dev.vars*
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.db
+*.log
+.DS_Store
+coverage/
+deploy-vibecheck/version.json
+
+# Deployment and CI workflows are deliberately excluded.
+.github/workflows/
+.gitlab-ci.yml
+.circleci/
+azure-pipelines.yml
+bitbucket-pipelines.yml
+Jenkinsfile
+.travis.yml
+appveyor.yml
+cloudbuild.yaml
+cloudbuild.yml
+
+# Keep review material and operator records out of the application branch.
+reviews/
+private-reviews/
+public-source/
