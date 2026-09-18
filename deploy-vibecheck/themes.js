@@ -14,10 +14,10 @@
   ];
   const storageKey = 'vibecheck-brand-theme';
   const validTheme = id => themes.findIndex(theme => theme.id === id);
-  let current = 0;
+  let initial = 0;
   try {
     const saved = validTheme(localStorage.getItem(storageKey));
-    if (saved >= 0) current = saved;
+    if (saved >= 0) initial = saved;
   } catch { /* Appearance controls also work when browser storage is unavailable. */ }
   document.addEventListener('DOMContentLoaded', () => {
     const controls = document.getElementById('theme-controls');
@@ -25,7 +25,11 @@
     const label = document.getElementById('theme-current');
     const select = document.getElementById('theme-choice');
     const artwork = document.getElementById('brand-palette-art');
+    const paletteImage = document.getElementById('brand-palette-image');
+    const feedback = document.getElementById('theme-feedback');
     const meta = document.querySelector('meta[name="theme-color"]');
+    let current = 0, requested = initial, selection = 0;
+    let artworkReady = false, artworkLoad;
     themes.forEach(theme => select.add(new Option(theme.name, theme.id)));
 
     function apply(index, persist = true) {
@@ -41,13 +45,66 @@
       }
     }
 
-    document.getElementById('theme-next').addEventListener('click', () => apply(current + 1));
-    document.getElementById('theme-previous').addEventListener('click', () => apply(current - 1));
+    function loadArtwork() {
+      if (!artworkLoad) {
+        // Leave the large alternate-logo sheet out of the default page request.
+        // Wait for the displayed SVG image, not a separate preloaded image.
+        artworkLoad = new Promise((resolve, reject) => {
+          const cleanup = () => {
+            paletteImage.removeEventListener('load', loaded);
+            paletteImage.removeEventListener('error', failed);
+          };
+          const loaded = () => {
+            cleanup();
+            artworkReady = true;
+            resolve();
+          };
+          const failed = () => {
+            cleanup();
+            paletteImage.removeAttribute('href');
+            reject(new Error('Artwork unavailable'));
+          };
+          paletteImage.addEventListener('load', loaded);
+          paletteImage.addEventListener('error', failed);
+          paletteImage.setAttribute('href', '/brand/serif-palettes.webp');
+        }).catch(error => {
+          artworkLoad = undefined;
+          throw error;
+        });
+      }
+      return artworkLoad;
+    }
+
+    async function choose(index, persist = true) {
+      requested = (index + themes.length) % themes.length;
+      const next = requested, operation = ++selection;
+      const theme = themes[next];
+      select.value = theme.id;
+      feedback.textContent = '';
+      if (next !== 0 && !artworkReady) {
+        feedback.textContent = `Loading ${theme.name} artwork…`;
+        try { await loadArtwork(); }
+        catch {
+          if (operation !== selection) return;
+          requested = current;
+          select.value = themes[current].id;
+          feedback.textContent = `The artwork couldn’t load. Showing ${themes[current].name}. Choose a style to try again.`;
+          return;
+        }
+      }
+      if (operation !== selection) return;
+      apply(next, persist);
+      feedback.textContent = '';
+    }
+
+    document.getElementById('theme-next').addEventListener('click', () => choose(requested + 1));
+    document.getElementById('theme-previous').addEventListener('click', () => choose(requested - 1));
     select.addEventListener('change', () => {
       const index = validTheme(select.value);
-      if (index >= 0) apply(index);
+      if (index >= 0) choose(index);
     });
-    apply(current, false);
+    apply(0, false);
     controls.hidden = false;
+    if (initial !== 0) choose(initial, false);
   });
 })();
