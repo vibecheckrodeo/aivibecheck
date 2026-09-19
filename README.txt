@@ -206,3 +206,5 @@ private operator storage and Cloudflare's secret configuration.
 License
 -------
 MIT. Copyright 2026 Ashley Raiteri. See LICENSE.
+
+Brand comparison: Ctrl+Shift+K cycles 13 styles. Normal visits choose a different style from the last successful visit when browser storage is available. Fixed ad destinations use ?theme=<id>; see site/brand/SOURCES.txt for IDs.
