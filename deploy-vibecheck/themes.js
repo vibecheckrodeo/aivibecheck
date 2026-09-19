@@ -23,16 +23,18 @@
   ];
   const storageKey = 'vibecheck-brand-theme';
   const validTheme = id => themes.findIndex(theme => theme.id === id);
-  let initial = 0;
+  let previous = -1;
   try {
-    const saved = validTheme(localStorage.getItem(storageKey));
-    if (saved >= 0) initial = saved;
+    previous = validTheme(localStorage.getItem(storageKey));
   } catch { /* Appearance controls also work when browser storage is unavailable. */ }
+  const pinned = validTheme(new URLSearchParams(location.search).get('theme'));
+  const candidates = themes.map((theme, index) => index).filter(index => index !== previous);
+  // A fixed ad link overrides visit rotation. Without stored state, every theme
+  // is eligible; no-repeat behavior across visits is necessarily best-effort.
+  const initial = pinned >= 0 ? pinned : candidates[Math.floor(Math.random() * candidates.length)];
   document.addEventListener('DOMContentLoaded', () => {
-    const controls = document.getElementById('theme-controls');
-    if (!controls) return;
-    const label = document.getElementById('theme-current');
-    const select = document.getElementById('theme-choice');
+    const hint = document.getElementById('theme-hint');
+    if (!hint) return;
     const artwork = document.getElementById('brand-palette-art');
     const paletteImage = document.getElementById('brand-palette-image');
     const feedback = document.getElementById('theme-feedback');
@@ -49,13 +51,10 @@
     definitions.appendChild(clip);
     artwork.appendChild(definitions);
     paletteImage.setAttribute('opacity', '0');
-    themes.forEach(theme => select.add(new Option(theme.name, theme.id)));
 
     function apply(index, persist = true) {
       current = (index + themes.length) % themes.length;
       const theme = themes[current];
-      label.textContent = `${current + 1} / ${themes.length} · ${theme.name}`;
-      select.value = theme.id;
       if (theme.sheet) {
         artwork.setAttribute('viewBox', theme.crop);
         const [x, y, width, height] = theme.crop.split(' ').map(Number);
@@ -118,7 +117,6 @@
       requested = (index + themes.length) % themes.length;
       const next = requested, operation = ++selection;
       const theme = themes[next];
-      select.value = theme.id;
       feedback.textContent = '';
       if (theme.sheet && !artworkSheets.get(theme.sheet)?.ready) {
         feedback.textContent = `Loading ${theme.name} artwork…`;
@@ -126,24 +124,24 @@
         catch {
           if (operation !== selection) return;
           requested = current;
-          select.value = themes[current].id;
-          feedback.textContent = `The artwork couldn’t load. Showing ${themes[current].name}. Choose a style to try again.`;
+          feedback.textContent = `The artwork couldn’t load. Showing ${themes[current].name}. Press Control, Shift and K to try another style.`;
           return;
         }
       }
       if (operation !== selection) return;
       apply(next, persist);
-      feedback.textContent = '';
+      feedback.textContent = `${theme.name} style.`;
     }
 
-    document.getElementById('theme-next').addEventListener('click', () => choose(requested + 1));
-    document.getElementById('theme-previous').addEventListener('click', () => choose(requested - 1));
-    select.addEventListener('change', () => {
-      const index = validTheme(select.value);
-      if (index >= 0) choose(index);
+    document.addEventListener('keydown', event => {
+      if (event.defaultPrevented || event.repeat || event.isComposing || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || typeof event.key !== 'string' || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      // Change presentation only: never navigate, replace form nodes, or rewrite
+      // the pinned ad URL. Refreshing that URL selects its original theme again.
+      choose(requested + 1);
     });
     apply(0, false);
-    controls.hidden = false;
-    if (initial !== 0) choose(initial, false);
+    hint.hidden = false;
+    choose(initial);
   });
 })();
