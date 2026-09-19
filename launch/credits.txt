@@ -8,6 +8,10 @@ feedback. Codex performed substantial implementation work as well as copy
 editing on the current site. The coordinating model for this recorded work
 is identified as GPT-6; a more specific variant is not established here.
 
+Ashley confirmed that the $25 deposit covers the first 15 minutes. Extra
+time is $25 per 15 minutes, agreed before extending. This business-term
+confirmation does not establish final review of the blog or the paid flow.
+
 Project-specific session metadata verifies earlier landing-page work by
 Claude, with the recorded model identifier claude-fable-5-1. The record
 includes a successful source write and promotion to the earlier landing page
