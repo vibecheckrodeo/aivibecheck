@@ -1,25 +1,15 @@
-// Approved Butter identity plus the last three archived four-direction sheets.
+// The four shortlisted identities. Archived sheets retain the original artwork.
 // Changing a theme only updates presentation; it never reloads or replaces the form.
 (() => {
   const sheets = {
     expressive: '/brand/four-eye-serif-wave-conversation-options.png',
-    cleanup: '/brand/four-slop-cleanup-options.png',
     typographic: '/brand/four-serious-typographic-options.png',
   };
   const themes = [
     { id: 'butter', name: 'Butter', paper: '#fff2c9' },
-    { id: 'eye', name: 'Eye', sheet: 'expressive', crop: '45 100 680 310', paper: '#fffefd' },
-    { id: 'expressive-serif', name: 'Expressive serif', sheet: 'expressive', crop: '810 105 700 300', paper: '#fffefd' },
-    { id: 'ribbon', name: 'Ribbon', sheet: 'expressive', crop: '20 615 735 305', paper: '#fffefd' },
-    { id: 'conversation', name: 'Conversation', sheet: 'expressive', crop: '810 620 700 300', paper: '#fffefd' },
-    { id: 'splash-check', name: 'Splash check', sheet: 'cleanup', crop: '30 58 710 387', clip: 'M30 58H740V375H345V445H30Z', paper: '#fffcf2' },
-    { id: 'melting-type', name: 'Melting type', sheet: 'cleanup', crop: '790 145 730 225', paper: '#fffcf2' },
-    { id: 'peel-back', name: 'Peel back', sheet: 'cleanup', crop: '30 550 710 405', clip: 'M80 550H740V890H325V955H30V580H80Z', paper: '#fffcf2' },
-    { id: 'sifted-slop', name: 'Sifted slop', sheet: 'cleanup', crop: '790 590 720 315', paper: '#fffcf2' },
     { id: 'geometric', name: 'Geometric', sheet: 'typographic', crop: '55 185 665 125', paper: '#fffefd' },
-    { id: 'editorial', name: 'Editorial', sheet: 'typographic', crop: '810 180 700 135', paper: '#fffefd' },
-    { id: 'condensed', name: 'Condensed', sheet: 'typographic', crop: '170 575 425 350', paper: '#fffefd' },
-    { id: 'humanist', name: 'Humanist', sheet: 'typographic', crop: '810 680 700 145', paper: '#fffefd' },
+    { id: 'ribbon', name: 'Ribbon', sheet: 'expressive', crop: '20 615 735 305', paper: '#fffefd' },
+    { id: 'expressive-serif', name: 'Expressive serif', sheet: 'expressive', crop: '810 105 700 300', paper: '#fffefd' },
   ];
   const storageKey = 'vibecheck-brand-theme';
   const validTheme = id => themes.findIndex(theme => theme.id === id);
@@ -27,7 +17,11 @@
   try {
     previous = validTheme(localStorage.getItem(storageKey));
   } catch { /* Appearance controls also work when browser storage is unavailable. */ }
-  const pinned = validTheme(new URLSearchParams(location.search).get('theme'));
+  const queryTheme = new URLSearchParams(location.search).get('theme');
+  // A theme written by an ordinary visit may rotate again on refresh. A copied
+  // link has no such history state, so the recipient gets the advertised theme.
+  const automatic = history.state?.vibecheckTheme?.automatic === true && history.state.vibecheckTheme.id === queryTheme;
+  const pinned = automatic ? -1 : validTheme(queryTheme);
   const candidates = themes.map((theme, index) => index).filter(index => index !== previous);
   // A fixed ad link overrides visit rotation. Without stored state, every theme
   // is eligible; no-repeat behavior across visits is necessarily best-effort.
@@ -52,7 +46,7 @@
     artwork.appendChild(definitions);
     paletteImage.setAttribute('opacity', '0');
 
-    function apply(index, persist = true) {
+    function apply(index, persist = true, rotateOnRefresh = false) {
       current = (index + themes.length) % themes.length;
       const theme = themes[current];
       if (theme.sheet) {
@@ -67,7 +61,17 @@
       meta?.setAttribute('content', theme.paper);
       if (persist) {
         try { localStorage.setItem(storageKey, theme.id); } catch {}
+        syncUrl(theme.id, rotateOnRefresh);
       }
+    }
+
+    function syncUrl(id, automatic) {
+      const url = new URL(location.href);
+      url.searchParams.delete('theme');
+      url.searchParams.append('theme', id);
+      try {
+        history.replaceState({ ...history.state, vibecheckTheme: { id, automatic } }, '', url.href);
+      } catch { /* A restricted browser must still display the selected style. */ }
     }
 
     function loadArtwork(sheet) {
@@ -113,7 +117,7 @@
       return record.promise;
     }
 
-    async function choose(index, persist = true) {
+    async function choose(index, rotateOnRefresh = false) {
       requested = (index + themes.length) % themes.length;
       const next = requested, operation = ++selection;
       const theme = themes[next];
@@ -124,24 +128,24 @@
         catch {
           if (operation !== selection) return;
           requested = current;
+          syncUrl(themes[current].id, rotateOnRefresh);
           feedback.textContent = `The artwork couldn’t load. Showing ${themes[current].name}. Press Control, Shift and K to try another style.`;
           return;
         }
       }
       if (operation !== selection) return;
-      apply(next, persist);
+      apply(next, true, rotateOnRefresh);
       feedback.textContent = `${theme.name} style.`;
     }
 
     document.addEventListener('keydown', event => {
       if (event.defaultPrevented || event.repeat || event.isComposing || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || typeof event.key !== 'string' || event.key.toLowerCase() !== 'k') return;
       event.preventDefault();
-      // Change presentation only: never navigate, replace form nodes, or rewrite
-      // the pinned ad URL. Refreshing that URL selects its original theme again.
+      // Update the shareable URL in place without navigating or replacing forms.
       choose(requested + 1);
     });
     apply(0, false);
     hint.hidden = false;
-    choose(initial);
+    choose(initial, pinned < 0);
   });
 })();
