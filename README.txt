@@ -207,4 +207,4 @@ License
 -------
 MIT. Copyright 2026 Ashley Raiteri. See LICENSE.
 
-Brand comparison: Ctrl+Shift+K cycles 13 styles. Normal visits choose a different style from the last successful visit when browser storage is available. Fixed ad destinations use ?theme=<id>; see site/brand/SOURCES.txt for IDs.
+Brand comparison: Ctrl+Shift+K cycles Butter, Geometric, Ribbon, and Expressive serif. Butter uses a solid-teal k. The displayed theme is the final query parameter, preserving the rest of the URL. Shared/ad URLs pin the theme; ordinary visits still rotate on refresh using browser history state. See site/brand/SOURCES.txt for IDs.
