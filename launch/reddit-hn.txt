@@ -14,6 +14,9 @@ have been verified. At drafting time, registration works, but Stripe setup
 and provider connections are still in progress. There is a separate draft
 for sharing the work before payments are ready.
 
+Confirmed pricing: the $25 deposit covers the first 15 minutes. Additional
+time is $25 per 15 minutes, agreed before extending.
+
 Do not add claims about automatic GitHub, Replit, Lovable, or Figma access
 until the specific connection and revocation behavior has been tested.
 Do not equate deleting a stored link with revoking a separate invitation.
@@ -91,9 +94,10 @@ you're unsure what to ask the agent to check next. I'll look at the project
 with you and explain what I'd investigate or change.
 
 You describe the problem in 1,000 words or less and share the project first.
-I review the request and agree on a scope before asking for a $25 deposit.
-Then you choose an available Zoom appointment within the next week.
-Reviews are $25 per 15 minutes, Monday–Saturday, 1–6pm Eastern.
+I review the request and agree on a scope before asking for a $25 deposit,
+which covers the first 15 minutes. Then you choose an available Zoom
+appointment within the next week, Monday–Saturday, 1–6pm Eastern.
+Additional time is $25 per 15 minutes, agreed before extending.
 
 This is a focused review. It doesn't include implementation, a full audit,
 security certification, or a written report. The agreed scope is fixed;
@@ -121,7 +125,8 @@ scope, you pay a $25 deposit, and you book an available time in the next week.
 
 I'm Ashley Raiteri, and I'll be doing the reviews. They're for people
 building with coding agents who need another pair of eyes on one problem.
-The rate is $25 per 15 minutes on Zoom.
+The deposit covers the first 15 minutes on Zoom. Additional time is $25 per
+15 minutes, agreed before extending.
 
 One less visible part of the site is access cleanup. The unpaid-access
 deadline starts when you confirm you've shared everything I need, not when
@@ -150,7 +155,8 @@ building, and what I need to see. I review that before asking for money.
 
 Registration and saving a project brief work. Payments and project-account
 connections are still being set up, so this isn't an invitation to book
-a paid review yet. The intended rate is $25 per 15 minutes on Zoom.
+a paid review yet. The $25 deposit will cover the first 15 minutes on Zoom.
+Additional time is $25 per 15 minutes, agreed before extending.
 
 The site: https://vibecheck.rodeo
 
@@ -172,7 +178,9 @@ I didn't like what that asked of the person using it. I need to see the
 problem before I can decide whether a short review will be useful.
 
 The revised flow is registration, project details, my approval, deposit,
-then an appointment. It runs on Cloudflare Pages with Functions and D1.
+then an appointment. The $25 deposit covers the first 15 minutes; additional
+time is $25 per 15 minutes, agreed before extending. The site runs on
+Cloudflare Pages with Functions and D1.
 
 The details that mattered most were in the state changes:
 
@@ -209,9 +217,10 @@ the agent to change or check. I'm Ashley Raiteri; the review is with me.
 Stage / role: [Confirm current launch stage.] Founder and reviewer.
 
 How it works: Share a brief and the project first. I review the request
-before asking for a $25 deposit. After approval and payment, choose an
-available Zoom appointment within the next week. Reviews are $25 per
-15 minutes, with scope agreed before payment.
+before asking for a $25 deposit, which covers the first 15 minutes. After
+approval and payment, choose an available Zoom appointment within the next
+week. We agree on the scope before payment. Additional time is $25 per
+15 minutes, agreed before extending.
 
 What would help: Feedback on whether the intake makes it clear what to
 share and what a short review can cover.
@@ -251,6 +260,8 @@ Source: https://news.ycombinator.com/showhn.html
 Facts available for Ashley's own introduction:
 - What the service reviews and why Ashley wants to do it.
 - Why payment moved after the brief and approval.
+- The $25 deposit covers the first 15 minutes; additional time costs $25 per
+  15 minutes and is agreed before extending.
 - Why the seven-day clock starts at completed intake.
 - Which provider permissions are actually requested and why.
 - How access is removed, including any remaining manual work.
