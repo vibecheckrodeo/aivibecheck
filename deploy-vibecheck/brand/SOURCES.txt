@@ -18,10 +18,22 @@ One sheet is loaded only when one of its four directions is selected. Already
 loaded sheets are reused; the currently visible artwork remains until the
 new SVG image reports success. Butter requires no alternate sheet download.
 
+Normal landing visits and refreshes choose a random direction excluding the
+last successfully displayed style stored in vibecheck-brand-theme. A missing,
+invalid or inaccessible storage value allows any style. Failed artwork loads
+retain the visible fallback without committing the failed choice to storage.
+
+A valid ?theme=<id> pins the landing direction, including on refresh. Supported
+IDs: butter, eye, expressive-serif, ribbon, conversation, splash-check,
+melting-type, peel-back, sifted-slop, geometric, editorial, condensed, humanist.
+Invalid theme query values use normal random selection. Ctrl+Shift+K advances
+through these directions without navigation, form changes or URL rewriting.
+Repeated and composing keyboard events and additional modifiers are ignored.
+
 Page colors approximate each concept's ink, accent and paper. Heading fonts
 use related system families, not claimed exact matches to the unnamed source
 fonts. Body and form typography stays unchanged. The original Butter palette
-and Georgia headings remain the default.
+and Georgia headings remain the no-script and loading fallback.
 
 serif-palettes.webp: legacy, pixel-identical lossless WebP of
 logos/archive/nine-background-palettes.png; retained for cached older pages.
