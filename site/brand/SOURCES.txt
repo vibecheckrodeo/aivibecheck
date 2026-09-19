@@ -1,40 +1,36 @@
-The brand comparison uses the approved Butter identity plus 12 distinct
-directions from the last three archived four-option sheets (13 styles total).
+Four shortlisted themes: Butter, Geometric, Ribbon, Expressive serif.
 
-butter-wordmark.png: unmodified copy of the current production logo
-four-eye-serif-wave-conversation-options.png: unmodified copy of the identically
-named file in logos/archive/; Eye, Expressive serif, Ribbon, Conversation.
-four-slop-cleanup-options.png: unmodified copy of the identically named file in
-logos/archive/; Splash check, Melting type, Peel back, Sifted slop.
-four-serious-typographic-options.png: unmodified copy of the identically named
-file in logos/archive/; Geometric, Editorial, Condensed, Humanist.
+butter-solid-k.png: built-in image-editing tool revision of butter-wordmark.png.
+Edit prompt: make the peach strokes of the lowercase k solid dark teal #084E50;
+retain the remaining lettering, i dot, separate V/check accent, and background.
+The original butter-wordmark.png remains archived without modification.
 
-SVG viewports and clip paths isolate each original direction. The clipping
-excludes option numbers, dividers and small embedded slogans. Splash check and
-Peel back use notched clip boundaries to retain the left-side illustration
-while excluding the slogan below the wordmark. No raster artwork was edited.
+Geometric is clipped from four-serious-typographic-options.png.
+Ribbon and Expressive serif are clipped from
+four-eye-serif-wave-conversation-options.png. Both are unmodified copies of
+the identically named sheets in logos/archive/. SVG viewports and clipping
+exclude option numbers, dividers and embedded slogans. Other original brand
+sheets remain archived, but their directions are no longer selectable.
 
-One sheet is loaded only when one of its four directions is selected. Already
-loaded sheets are reused; the currently visible artwork remains until the
-new SVG image reports success. Butter requires no alternate sheet download.
+A sheet is requested only when a shortlisted direction needs it. The current
+style remains visible until the new SVG image loads; failed loads retain the
+visible style. Butter does not need an alternate sheet.
 
-Normal landing visits and refreshes choose a random direction excluding the
-last successfully displayed style stored in vibecheck-brand-theme. A missing,
-invalid or inaccessible storage value allows any style. Failed artwork loads
-retain the visible fallback without committing the failed choice to storage.
+Supported query IDs: butter, geometric, ribbon, expressive-serif.
+Successful selection writes theme as the final URL query parameter with
+history.replaceState, preserving other parameters and the fragment. The
+keyboard shortcut Ctrl+Shift+K cycles the four themes without navigation or
+replacing form fields. The copied URL opens that exact style, as do ad links.
 
-A valid ?theme=<id> pins the landing direction, including on refresh. Supported
-IDs: butter, eye, expressive-serif, ribbon, conversation, splash-check,
-melting-type, peel-back, sifted-slop, geometric, editorial, condensed, humanist.
-Invalid theme query values use normal random selection. Ctrl+Shift+K advances
-through these directions without navigation, form changes or URL rewriting.
-Repeated and composing keyboard events and additional modifiers are ignored.
+Ordinary visits exclude the last successfully displayed style when local
+storage is available. History state marks automatically selected URLs so
+refresh can rotate again, while a copied URL or shortcut choice is pinned.
+Missing, retired or invalid theme IDs use normal random selection. Failed
+artwork never commits an unseen style to storage or the address bar.
 
-Page colors approximate each concept's ink, accent and paper. Heading fonts
-use related system families, not claimed exact matches to the unnamed source
-fonts. Body and form typography stays unchanged. The original Butter palette
-and Georgia headings remain the no-script and loading fallback.
+Page colors approximate the original concepts; heading fonts use related
+system families, not exact matches to the unnamed fonts. Body and form
+font styling is unchanged. Butter remains the no-script/loading fallback.
 
-serif-palettes.webp: legacy, pixel-identical lossless WebP of
-logos/archive/nine-background-palettes.png; retained for cached older pages.
-It is not requested by the current brand switcher.
+serif-palettes.webp and other original sheets are retained for cached older
+pages. They are not requested by the current theme rotation.

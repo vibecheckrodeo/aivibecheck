@@ -7,9 +7,9 @@ const source = await readFile(new URL('../site/themes.js', import.meta.url), 'ut
 const html = await readFile(new URL('../site/index.html', import.meta.url), 'utf8');
 const css = await readFile(new URL('../site/themes.css', import.meta.url), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
-const styles = ['butter', 'eye', 'expressive-serif', 'ribbon', 'conversation', 'splash-check', 'melting-type', 'peel-back', 'sifted-slop', 'geometric', 'editorial', 'condensed', 'humanist'];
+const styles = ['butter', 'geometric', 'ribbon', 'expressive-serif'];
 
-function page({ saved, blockedStorage = false, blockedWrite = false, query = '', random = 0 } = {}) {
+function page({ saved, blockedStorage = false, blockedWrite = false, query = '', random = 0, historyState = null, hash = '', blockedHistory = false } = {}) {
   const nodes = new Map(), created = [], loads = [], writes = [], events = {};
   const root = { dataset: {} };
   let stored = saved;
@@ -32,11 +32,13 @@ function page({ saved, blockedStorage = false, blockedWrite = false, query = '',
     nodes.set(id, makeNode(id === 'brand-palette-image' ? 'image' : 'div', id));
   }
   nodes.get('brand-palette-art').appendChild(nodes.get('brand-palette-image'));
-  const location = new Proxy({ search: query, href: `https://vibecheck.test/${query}`, reload() { assert.fail('Theme changes must not reload'); }, assign() { assert.fail('Theme changes must not navigate'); } }, { set() { assert.fail('Theme changes must not rewrite the URL'); } });
+  const address = { search: query, href: `https://vibecheck.test/${query}${hash}`, reload() { assert.fail('Theme changes must not reload'); }, assign() { assert.fail('Theme changes must not navigate'); } };
+  const location = new Proxy(address, { set() { assert.fail('Use History API without navigating'); } });
+  const history = { state: historyState, replaceState(state, title, href) { if (blockedHistory) throw Error('history unavailable'); this.state = state; const url = new URL(href); address.href = url.href; address.search = url.search; } };
   const controlledMath = Object.create(Math);
   controlledMath.random = typeof random === 'function' ? random : () => random;
   runInNewContext(source, {
-    Math: controlledMath, URLSearchParams, location,
+    Math: controlledMath, URL, URLSearchParams, location, history,
     localStorage: {
       getItem(key) { assert.equal(key, 'vibecheck-brand-theme'); if (blockedStorage) throw Error('storage unavailable'); return stored; },
       setItem(key, value) { if (blockedStorage || blockedWrite) throw Error('storage unavailable'); writes.push({ key, value }); stored = value; },
@@ -61,7 +63,7 @@ function page({ saved, blockedStorage = false, blockedWrite = false, query = '',
     return prevented;
   };
   return {
-    root, loads, writes, created, key, location,
+    root, loads, writes, created, key, location, history,
     stored: () => stored,
     node: id => nodes.get(id),
     active: () => [nodes.get('brand-palette-image'), ...created.filter(node => node.tag === 'image')].filter(node => node.attrs.opacity === '1'),
@@ -109,10 +111,10 @@ test('initial random artwork does not commit the temporary Butter fallback or th
   const p = page({ saved: 'butter', random: 0 });
   assert.equal(p.loads.length, 1); assert.equal(p.root.dataset.theme, 'butter');
   assert.equal(p.stored(), 'butter'); assert.equal(p.writes.length, 0);
-  assert.match(p.node('theme-feedback').textContent, /Loading Eye/);
+  assert.match(p.node('theme-feedback').textContent, /Loading Geometric/);
   p.loads[0].resolve(); await settle();
-  assert.equal(p.root.dataset.theme, 'eye'); assert.equal(p.stored(), 'eye');
-  assert.deepEqual(p.writes.map(item => item.value), ['eye']);
+  assert.equal(p.root.dataset.theme, 'geometric'); assert.equal(p.stored(), 'geometric');
+  assert.deepEqual(p.writes.map(item => item.value), ['geometric']);
 });
 
 test('failed initial artwork preserves last-visit state and allows the shortcut to retry', async () => {
@@ -124,24 +126,24 @@ test('failed initial artwork preserves last-visit state and allows the shortcut 
   assert.match(p.node('theme-feedback').textContent, /Showing Butter/);
   p.advance(); assert.equal(p.loads.length, 2); assert.equal(p.loads[1].node, image);
   p.loads[1].resolve(); await settle();
-  assert.equal(p.root.dataset.theme, 'eye'); assert.equal(p.stored(), 'eye');
+  assert.equal(p.root.dataset.theme, 'geometric'); assert.equal(p.stored(), 'geometric');
 });
 
 test('missing, obsolete and inaccessible storage use a random fallback, with write failures tolerated', async () => {
   for (const options of [{}, { saved: 'sage' }, { saved: 'unknown' }, { saved: 'peel-back', blockedStorage: true }]) {
     const p = page({ ...options, random: .6 });
     await p.finishLoads();
-    assert.equal(p.root.dataset.theme, 'peel-back');
-    assert.equal(p.node('theme-feedback').textContent, 'Peel back style.');
+    assert.equal(p.root.dataset.theme, 'ribbon');
+    assert.equal(p.node('theme-feedback').textContent, 'Ribbon style.');
   }
-  const blockedWrite = page({ saved: 'eye', random: 0, blockedWrite: true });
+  const blockedWrite = page({ saved: 'geometric', random: 0, blockedWrite: true });
   assert.equal(blockedWrite.root.dataset.theme, 'butter'); assert.equal(blockedWrite.writes.length, 0);
-  assert.equal(blockedWrite.stored(), 'eye');
+  assert.equal(blockedWrite.stored(), 'geometric');
 });
 
 test('every valid pinned landing ignores random selection and remains pinned on refresh', async () => {
   for (const id of styles) {
-    const query = `?utm_source=linkedin&theme=${id}&campaign=fixture`;
+    const query = `?utm_source=linkedin&campaign=fixture&theme=${id}`;
     const p = page({ saved: id, query, random: () => assert.fail('Pinned links must not randomize') });
     await p.finishLoads();
     assert.equal(p.root.dataset.theme, id); assert.equal(p.stored(), id);
@@ -155,9 +157,9 @@ test('empty and invalid pinned values use normal no-repeat selection without ech
   for (const query of ['?theme=', '?theme=unknown', '?theme=EYE', '?theme=%3Cscript%3E', '?utm_source=linkedin']) {
     const p = page({ saved: 'butter', query, random: 0 });
     await p.finishLoads();
-    assert.equal(p.root.dataset.theme, 'eye'); assert.equal(p.stored(), 'eye');
-    assert.equal(p.node('theme-feedback').textContent, 'Eye style.');
-    assert.equal(p.location.search, query);
+    assert.equal(p.root.dataset.theme, 'geometric'); assert.equal(p.stored(), 'geometric');
+    assert.equal(p.node('theme-feedback').textContent, 'Geometric style.');
+    assert.equal(new URLSearchParams(p.location.search).get('theme'), p.root.dataset.theme);
   }
 });
 
@@ -168,88 +170,84 @@ test('only exact Ctrl+Shift+K rotates, case insensitively, without repeat or com
   }
   assert.equal(p.loads.length, 0); assert.equal(p.root.dataset.theme, 'butter');
   assert.equal(p.key({ key: 'k' }), true);
-  p.loads[0].resolve(); await settle(); assert.equal(p.root.dataset.theme, 'eye');
-  assert.equal(p.key({ key: 'K' }), true); assert.equal(p.root.dataset.theme, 'expressive-serif');
-  assert.equal(p.location.search, '?theme=butter');
+  p.loads[0].resolve(); await settle(); assert.equal(p.root.dataset.theme, 'geometric');
+  assert.equal(p.key({ key: 'K' }), true); await p.finishLoads(); assert.equal(p.root.dataset.theme, 'ribbon');
+  assert.equal(p.location.search, '?theme=ribbon');
 });
 
-test('keyboard rotation visits all 13 styles, wraps, and reuses only three needed sheets without changing the ad URL', async () => {
-  const query = '?theme=butter&utm_source=linkedin&request=fixture';
-  const p = page({ query });
-  for (const style of styles.slice(1)) {
-    const previous = p.root.dataset.theme, count = p.loads.length;
-    p.advance();
-    if (p.loads.length > count) {
-      assert.equal(p.root.dataset.theme, previous);
-      p.loads.at(-1).resolve();
-    }
-    await settle();
-    assert.equal(p.root.dataset.theme, style); assert.equal(p.active().length, 1);
-    assert.equal(p.active()[0].attrs['clip-path'], 'url(#brand-artwork-crop)');
-    assert.ok(p.clip()); assert.equal(p.location.search, query);
+test('keyboard rotation visits only the four shortlisted styles and keeps other URL data intact', async () => {
+  const p = page({ query: '?theme=butter&utm_source=linkedin&request=fixture', hash: '#access=synthetic', historyState: { retained: 1 } });
+  for (const style of [...styles.slice(1), 'butter']) {
+    p.advance(); await p.finishLoads();
+    assert.equal(p.root.dataset.theme, style);
+    assert.equal(p.location.search, `?utm_source=linkedin&request=fixture&theme=${style}`);
+    assert.equal(new URL(p.location.href).hash, '#access=synthetic');
+    assert.equal(p.history.state.retained, 1);
+    assert.equal(p.history.state.vibecheckTheme.automatic, false);
+    if (style !== 'butter') { assert.equal(p.active().length, 1); assert.ok(p.clip()); }
   }
-  p.advance(); assert.equal(p.root.dataset.theme, 'butter'); assert.equal(p.active().length, 0);
-  assert.equal(p.loads.length, 3); assert.equal(p.created.filter(node => node.tag === 'image').length, 2);
-  for (const load of p.loads) assert.deepEqual(load.node.handlers, {});
-  const refresh = page({ query, saved: p.stored(), random: .99 });
-  assert.equal(refresh.root.dataset.theme, 'butter');
+  assert.equal(p.loads.length, 2);
+  assert.equal(p.active().length, 0);
 });
 
-test('rapid keyboard choices during initial loading share one request and only the latest choice is committed', async () => {
-  const p = page({ query: '?theme=eye' });
-  p.advance(2);
-  assert.equal(p.loads.length, 1); assert.equal(p.writes.length, 0);
-  p.loads[0].resolve(); await settle();
-  assert.equal(p.root.dataset.theme, 'ribbon');
-  assert.equal(p.node('brand-palette-art').attrs.viewBox, '20 615 735 305');
-  assert.deepEqual(p.writes.map(item => item.value), ['ribbon']);
+test('automatic visits write a shareable URL but still rotate on refresh; copied URLs stay pinned', async () => {
+  const first = page({ saved: 'butter', query: '?utm_source=linkedin', random: 0 });
+  await first.finishLoads();
+  assert.equal(first.location.search, '?utm_source=linkedin&theme=geometric');
+  const refreshed = page({ saved: first.stored(), query: first.location.search, historyState: first.history.state, random: 0 });
+  await refreshed.finishLoads();
+  assert.equal(refreshed.root.dataset.theme, 'butter');
+  const copied = page({ saved: first.stored(), query: first.location.search, random: () => assert.fail('A copied URL must pin its style') });
+  await copied.finishLoads();
+  assert.equal(copied.root.dataset.theme, 'geometric');
+  assert.equal(copied.history.state.vibecheckTheme.automatic, false);
 });
 
-test('cross-sheet loading preserves visible art and crop; failure keeps it and retry reuses the failed node', async () => {
-  const p = page({ query: '?theme=conversation' });
-  p.loads[0].resolve(); await settle();
+test('rapid cross-sheet choices and failures only commit the latest successful style and URL', async () => {
+  for (const lateFailure of [false, true]) {
+    const p = page({ query: '?theme=geometric' });
+    p.advance(2);
+    assert.equal(p.loads.length, 2); assert.equal(p.writes.length, 0);
+    p.loads[1].resolve(); await settle();
+    if (lateFailure) p.loads[0].reject(); else p.loads[0].resolve();
+    await settle();
+    assert.equal(p.root.dataset.theme, 'expressive-serif');
+    assert.equal(p.location.search, '?theme=expressive-serif');
+    assert.deepEqual(p.writes.map(item => item.value), ['expressive-serif']);
+  }
+});
+
+test('cross-sheet failure preserves displayed artwork and URL, then retries the failed node', async () => {
+  const p = page({ query: '?theme=geometric' });
+  await p.finishLoads();
   const current = p.active()[0], crop = p.node('brand-palette-art').attrs.viewBox;
   p.advance(); const failedImage = p.loads[1].node;
-  assert.equal(p.root.dataset.theme, 'conversation'); assert.equal(p.active()[0], current);
-  assert.equal(p.node('brand-palette-art').attrs.viewBox, crop); assert.equal(failedImage.attrs.opacity, '0');
+  assert.equal(p.active()[0], current); assert.equal(p.node('brand-palette-art').attrs.viewBox, crop);
+  assert.equal(p.location.search, '?theme=geometric');
   p.loads[1].reject(); await settle();
-  assert.equal(p.root.dataset.theme, 'conversation'); assert.equal(p.active()[0], current);
-  assert.equal(p.stored(), 'conversation'); assert.equal(failedImage.attrs.href, undefined);
-  assert.match(p.node('theme-feedback').textContent, /Showing Conversation/);
-  p.advance(); assert.equal(p.loads.length, 3); assert.equal(p.loads[2].node, failedImage);
+  assert.equal(p.root.dataset.theme, 'geometric'); assert.equal(p.stored(), 'geometric');
+  assert.equal(p.location.search, '?theme=geometric');
+  p.advance(); assert.equal(p.loads[2].node, failedImage);
   p.loads[2].resolve(); await settle();
-  assert.equal(p.root.dataset.theme, 'splash-check'); assert.equal(p.active()[0], failedImage);
-  assert.equal(p.clip(), 'M30 58H740V375H345V445H30Z');
-  assert.deepEqual(p.writes.map(item => item.value), ['conversation', 'splash-check']);
+  assert.equal(p.root.dataset.theme, 'ribbon'); assert.equal(p.location.search, '?theme=ribbon');
 });
 
-test('out-of-order cross-sheet success and failure cannot override the latest keyboard selection', async () => {
-  for (const lateFailure of [false, true]) {
-    const p = page({ query: '?theme=eye' });
-    p.advance(4); p.advance(5);
-    assert.equal(p.loads.length, 3); assert.equal(p.active().length, 0);
-    p.loads[2].resolve(); await settle();
-    assert.equal(p.root.dataset.theme, 'editorial');
-    p.loads[0].resolve();
-    if (lateFailure) p.loads[1].reject(); else p.loads[1].resolve();
-    await settle();
-    assert.equal(p.root.dataset.theme, 'editorial'); assert.equal(p.active()[0], p.loads[2].node);
-    assert.equal(p.active().length, 1); assert.equal(p.node('theme-feedback').textContent, 'Editorial style.');
-    assert.deepEqual(p.writes.map(item => item.value), ['editorial']);
-  }
-});
-
-test('wrapping to Butter cancels a pending pinned style without a late theme, storage write or error', async () => {
+test('wrapping to Butter cancels pending artwork without stale URL changes', async () => {
   for (const fail of [false, true]) {
-    const p = page({ query: '?theme=humanist' });
+    const p = page({ query: '?theme=expressive-serif' });
     p.advance();
     if (fail) p.loads[0].reject(); else p.loads[0].resolve();
     await settle();
     assert.equal(p.root.dataset.theme, 'butter'); assert.equal(p.active().length, 0);
-    assert.equal(p.node('theme-feedback').textContent, 'Butter style.');
+    assert.equal(p.location.search, '?theme=butter');
     assert.deepEqual(p.writes.map(item => item.value), ['butter']);
-    assert.equal(p.location.search, '?theme=humanist');
   }
+});
+
+test('restricted history does not stop theme selection', async () => {
+  const p = page({ blockedHistory: true, query: '?theme=butter' });
+  p.advance(); await p.finishLoads();
+  assert.equal(p.root.dataset.theme, 'geometric');
 });
 
 test('all alternate palettes retain readable text contrast and an explicit heading family', () => {
