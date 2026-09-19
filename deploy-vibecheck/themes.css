@@ -1,19 +1,10 @@
-/* Original artwork: three archived four-direction sheets. Page palettes and
+/* Four shortlisted identities. Page palettes and
    system heading families interpret each direction; they do not identify the
    unnamed source fonts. Butter retains its approved production identity. */
 :root { --brand-heading: Georgia, "Times New Roman", serif; }
-:root[data-theme="eye"] { --paper: #fffefd; --ink: #084e50; --peach: #ff9677; --line: rgba(8,78,80,.25); --brand-heading: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif; }
 :root[data-theme="expressive-serif"] { --paper: #fffefd; --ink: #600d1e; --peach: #ff6258; --line: rgba(96,13,30,.25); --brand-heading: Georgia, "Times New Roman", serif; }
 :root[data-theme="ribbon"] { --paper: #fffefd; --ink: #093ee4; --peach: #ffbe1b; --line: rgba(9,62,228,.25); --brand-heading: "Trebuchet MS", Arial, sans-serif; }
-:root[data-theme="conversation"] { --paper: #fffefd; --ink: #421b43; --peach: #49d69d; --line: rgba(66,27,67,.25); --brand-heading: "Trebuchet MS", Arial, sans-serif; }
-:root[data-theme="splash-check"] { --paper: #fffcf2; --ink: #43103f; --peach: #b8e14c; --line: rgba(67,16,63,.25); --brand-heading: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif; }
-:root[data-theme="melting-type"] { --paper: #fffcf2; --ink: #075963; --peach: #ff916e; --line: rgba(7,89,99,.25); --brand-heading: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif; }
-:root[data-theme="peel-back"] { --paper: #fffcf2; --ink: #043ab3; --peach: #ff7c68; --line: rgba(4,58,179,.25); --brand-heading: "Arial Black", Arial, sans-serif; }
-:root[data-theme="sifted-slop"] { --paper: #fffcf2; --ink: #064a33; --peach: #8bd6ad; --line: rgba(6,74,51,.25); --brand-heading: "Trebuchet MS", Arial, sans-serif; }
 :root[data-theme="geometric"] { --paper: #fffefd; --ink: #111112; --peach: #676767; --line: rgba(17,17,18,.25); --brand-heading: Arial, "Helvetica Neue", sans-serif; }
-:root[data-theme="editorial"] { --paper: #fffefd; --ink: #580b1b; --peach: #9e535e; --line: rgba(88,11,27,.25); --brand-heading: Georgia, "Times New Roman", serif; }
-:root[data-theme="condensed"] { --paper: #fffefd; --ink: #222326; --peach: #757878; --line: rgba(34,35,38,.25); --brand-heading: Impact, "Arial Narrow", "Helvetica Neue", sans-serif; }
-:root[data-theme="humanist"] { --paper: #fffefd; --ink: #072445; --peach: #5a789d; --line: rgba(7,36,69,.25); --brand-heading: "Trebuchet MS", "Gill Sans", Arial, sans-serif; }
 h1, h2 { font-family: var(--brand-heading); }
 
 .brand-home { position: relative; display: block; width: 160px; height: 80px; flex: 0 0 auto; }
