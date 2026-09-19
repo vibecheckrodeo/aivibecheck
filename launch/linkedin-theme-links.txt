@@ -1,0 +1,47 @@
+LinkedIn theme comparison — destination links
+
+Normal visits choose a different style from the previous successfully displayed theme when browser storage is available. Ctrl+Shift+K cycles styles without reloading or replacing project details.
+
+Use the fixed links below for ads. The theme parameter pins that landing page to the advertised style, including on refresh. UTM parameters label the destination for reporting tools; this change does not install tracking or claim conversion attribution is connected.
+
+Keep the audience, offer, ad wording, budget, and schedule comparable if the design is the variable you want to compare. Test each destination before publishing. These are prepared URLs, not launched ads.
+
+Butter
+https://vibecheck.rodeo/?theme=butter&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=butter
+
+Eye
+https://vibecheck.rodeo/?theme=eye&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=eye
+
+Expressive serif
+https://vibecheck.rodeo/?theme=expressive-serif&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=expressive-serif
+
+Ribbon
+https://vibecheck.rodeo/?theme=ribbon&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=ribbon
+
+Conversation
+https://vibecheck.rodeo/?theme=conversation&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=conversation
+
+Splash check
+https://vibecheck.rodeo/?theme=splash-check&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=splash-check
+
+Melting type
+https://vibecheck.rodeo/?theme=melting-type&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=melting-type
+
+Peel back
+https://vibecheck.rodeo/?theme=peel-back&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=peel-back
+
+Sifted slop
+https://vibecheck.rodeo/?theme=sifted-slop&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=sifted-slop
+
+Geometric
+https://vibecheck.rodeo/?theme=geometric&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=geometric
+
+Editorial
+https://vibecheck.rodeo/?theme=editorial&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=editorial
+
+Condensed
+https://vibecheck.rodeo/?theme=condensed&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=condensed
+
+Humanist
+https://vibecheck.rodeo/?theme=humanist&utm_source=linkedin&utm_medium=paid_social&utm_campaign=vibecheck_brand_test&utm_content=humanist
+
