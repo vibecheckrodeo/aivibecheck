@@ -203,6 +203,7 @@ export async function handle(request, env) {
           client_reference_id:row.id,'metadata[request_id]':row.id,
           'line_items[0][quantity]':'1','line_items[0][price_data][currency]':'usd','line_items[0][price_data][unit_amount]':'2500',
           'line_items[0][price_data][product_data][name]':'Vibe check — review deposit',
+          'line_items[0][price_data][product_data][description]':'Covers the first 15 minutes of your review. Extra time is agreed before extending.',
           expires_at:String(Math.floor(Math.min(Date.now()+3600000,row.expires_at)/1000))
         },`deposit-${row.id}-${row.stripe_session_id || 'first'}`);
         const result = await env.DB.prepare("UPDATE requests SET stripe_session_id=? WHERE id=? AND status='approved' AND paid_at IS NULL").bind(session.id,row.id).run();

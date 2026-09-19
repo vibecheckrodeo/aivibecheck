@@ -1,12 +1,28 @@
-The brand comparison uses the selected Butter identity and eight alternative
-palettes from the latest archived color sheet, nine-background-palettes.png.
-All nine use the original serif logotype and Georgia/Arial page typography.
-The earlier shortlist of eight distinct logotypes has not been identified.
+The brand comparison uses the approved Butter identity plus 12 distinct
+directions from the last three archived four-option sheets (13 styles total).
 
-serif-palettes.webp: pixel-identical, lossless WebP of logos/archive/nine-background-palettes.png
 butter-wordmark.png: unmodified copy of the current production logo
+four-eye-serif-wave-conversation-options.png: unmodified copy of the identically
+named file in logos/archive/; Eye, Expressive serif, Ribbon, Conversation.
+four-slop-cleanup-options.png: unmodified copy of the identically named file in
+logos/archive/; Splash check, Melting type, Peel back, Sifted slop.
+four-serious-typographic-options.png: unmodified copy of the identically named
+file in logos/archive/; Geometric, Editorial, Condensed, Humanist.
 
-The SVG viewport selects the corresponding artwork from the original sheet.
-Butter retains its later, refined V-check. Other themes show the archived V.
-Alternate page colors approximate the concept backgrounds; the fixed Butter
-tokens remain the production baseline.
+SVG viewports and clip paths isolate each original direction. The clipping
+excludes option numbers, dividers and small embedded slogans. Splash check and
+Peel back use notched clip boundaries to retain the left-side illustration
+while excluding the slogan below the wordmark. No raster artwork was edited.
+
+One sheet is loaded only when one of its four directions is selected. Already
+loaded sheets are reused; the currently visible artwork remains until the
+new SVG image reports success. Butter requires no alternate sheet download.
+
+Page colors approximate each concept's ink, accent and paper. Heading fonts
+use related system families, not claimed exact matches to the unnamed source
+fonts. Body and form typography stays unchanged. The original Butter palette
+and Georgia headings remain the default.
+
+serif-palettes.webp: legacy, pixel-identical lossless WebP of
+logos/archive/nine-background-palettes.png; retained for cached older pages.
+It is not requested by the current brand switcher.

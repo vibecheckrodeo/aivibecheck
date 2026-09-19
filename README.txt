@@ -9,7 +9,8 @@ The public site is https://vibecheck.rodeo. This source snapshot is separate
 from private operating records, customer data, credentials, and deployment
 history. A customer registers with a name and email, saves a brief, shares
 the project, and submits the request. Ashley reviews it before asking for
-the $25 deposit. Payment verification comes before booking an available
+the $25 deposit, which covers the first 15 minutes. Extra time is $25 per
+15 minutes, agreed before extending. Payment verification comes before booking an available
 appointment within the next week. A private return link provides access to
 the request; email delivery is not implemented.
 
