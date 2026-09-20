@@ -9,12 +9,14 @@ The public site is https://vibecheck.rodeo. This source snapshot is separate
 from private operating records, customer data, credentials, and deployment
 history. A customer registers with a name and email, saves a brief, shares
 the project, and submits the request. Ashley reviews it before asking for
-the $25 deposit, which covers the first 15 minutes. Extra time is $25 per
-15 minutes, agreed before extending. Payment verification comes before booking an available
-appointment within the next week. A private return link provides access to
-the request; email delivery is not implemented.
+the $25 deposit, which buys an answer or a 15-minute conversation. Ashley
+replies with a time estimate. Prepaid sessions cost $45 for 30 minutes or $80
+for an hour, including the deposit. Extra time is reserved before Checkout
+and confirmed only after server-side payment verification. A private return
+link provides access to the request; keep it to return on another device.
 
-Integration status at export, 18 September 2026: Stripe payments are not live,
+Integration status at export, 20 September 2026: Stripe payments and email
+sending are implemented but not activated with production credentials;
 the GitHub App is not configured, and Figma public authorization requires
 provider credentials and approval. Replit and Lovable use manual sharing or
 their GitHub export/sync features; this application has no native OAuth
@@ -70,7 +72,8 @@ Payment and appointments
 ------------------------
 Stripe requires server-side STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET
 configuration. Configure the webhook callback at /api/stripe-webhook on the
-origin you operate, for the checkout completion events handled by the API.
+origin you operate, for checkout.session.completed,
+checkout.session.async_payment_succeeded, and checkout.session.expired.
 The Pages API and cleanup Worker both need the same appropriate Stripe
 environment for reconciliation; the webhook secret belongs to the receiving
 Pages API. Until configured and verified, payment remains unavailable.
@@ -82,6 +85,31 @@ The administrator creates actual 15-minute appointment slots and supplies
 their Zoom URLs. The application does not invent meeting links or claim
 email delivery. Appointments must fall Monday through Saturday, 1–6pm
 America/New_York, and booking shows availability within the next seven days.
+
+Longer sessions need adjacent 15-minute blocks with the same Zoom URL. The
+application holds those blocks during Stripe Checkout and reconciles the
+provider result before releasing an uncertain payment. A previously booked
+review can extend only from its original start. Upgrade Checkout closes
+35 minutes before the appointment. Prices and deposit credit are calculated
+on the server; the browser cannot choose the charge amount.
+
+Email and optional follow-ups
+-----------------------------
+Configure RESEND_API_KEY and EMAIL_FROM on both the Pages API and cleanup
+Worker. EMAIL_REPLY_TO and PUBLIC_ORIGIN may be set explicitly. The existing
+INTEGRATION_ENCRYPTION_KEY encrypts confirmation tokens and retry payloads.
+Email sending stays unavailable without its configuration. A confirmed
+address is required before sending private project or payment updates.
+
+Optional upgrade emails additionally require EMAIL_POSTAL_ADDRESS, customer
+opt-in, an Ashley-authored estimate and campaign approval, verified deposit,
+and real available time. Three messages are the default; Ashley can choose
+four. Transactional material requests, replies, and receipts are separate.
+The sequence stops after an upgrade, unsubscribe, closed request, or when
+the appointment is less than 24 hours away. No eligible availability means
+no upgrade email. Provider acceptance is tracked separately from delivery;
+bounces and complaints suppress future sends. Unknown retries stop for
+operator review after the provider idempotency window.
 
 Intake and access
 -----------------
@@ -101,7 +129,7 @@ reported as successful revocation. No provider credentials are included here.
 
 Project connections and setup
 ----------------------------
-Both D1 migrations are required for the connection and cleanup tables. The
+All D1 migrations are required for the connection and cleanup tables. The
 Pages API and cleanup Worker must share the intended D1 binding and the same
 INTEGRATION_ENCRYPTION_KEY. The application encrypts integration credentials
 with AES-GCM and binds encrypted values to their purpose. Back up the key in

@@ -1,4 +1,7 @@
+import {availableReviewSlots,reviewBilling,confirmReviewPayment,createReviewCheckout,cancelReviewUpgrade,bookReview,reviewWebhook,reconcilePendingReviews,validReviewMinutes} from './review-payments.js';
+export {availableReviewSlots,reconcilePendingReviews} from './review-payments.js';
 import {handleConnections,removeRequestConnections,retryConnectionCleanup} from './connections.js';
+import {handleCommunications,handleEmailLink,initializeContact,emailConfiguration} from './communications.js';
 const DAY = 86400000;
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers }
@@ -45,6 +48,9 @@ async function administrator(request, env) {
   const candidate = request.headers.get('Authorization')?.replace(/^Bearer /, '') || '';
   if (!env.ADMIN_TOKEN || !candidate || await digest(candidate) !== await digest(env.ADMIN_TOKEN)) fail(401, 'Enter your admin access key.');
 }
+// Checkout needs both the server key and the asynchronous confirmation path.
+// Cleanup only needs the key to reconcile previously created sessions.
+const paymentReady = env => Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET);
 async function stripe(env, path, values, key) {
   if (!env.STRIPE_SECRET_KEY) fail(503, 'Deposit payments are not connected yet. Your request is saved; there is nothing to pay now.');
   const headers = { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` };
@@ -110,12 +116,14 @@ export async function expireUnpaid(env, now = Date.now()) {
 async function visible(env, row) {
   const { token_hash, ip_hash, stripe_session_id, ...safe } = row;
   safe.links = JSON.parse(safe.links);
-  safe.payment_ready = Boolean(env.STRIPE_SECRET_KEY);
+  safe.payment_ready = paymentReady(env);
+  Object.assign(safe,await reviewBilling(env,row));
   if (row.booked_slot_id) safe.booking = await env.DB.prepare('SELECT starts_at,ends_at,zoom_url FROM slots WHERE id=? AND request_id=?').bind(row.booked_slot_id, row.id).first();
+  if(safe.booking)safe.booking.ends_at=safe.booking.starts_at+(row.review_minutes||15)*60000;
   return safe;
 }
 async function openSlots(env, now = Date.now()) {
-  return (await env.DB.prepare('SELECT id,starts_at,ends_at FROM slots WHERE request_id IS NULL AND starts_at>? AND starts_at<=? ORDER BY starts_at').bind(now, now + 7 * DAY).all()).results;
+  return (await env.DB.prepare('SELECT id,starts_at,ends_at FROM slots WHERE request_id IS NULL AND NOT EXISTS(SELECT 1 FROM slot_claims c WHERE c.slot_id=slots.id) AND starts_at>? AND starts_at<=? ORDER BY starts_at').bind(now, now + 7 * DAY).all()).results;
 }
 export function validSlot(start, end, now) {
   if (!Number.isFinite(start) || end - start !== 15 * 60000 || start <= now) return false;
@@ -137,7 +145,8 @@ async function webhook(request, env) {
   for (const supplied of signatures) if (await digest(supplied) === await digest(signature)) valid = true;
   if (!valid) fail(400, 'Invalid webhook signature.');
   const event = JSON.parse(payload);
-  if (['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)) {
+  if (['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.expired'].includes(event.type)) {
+    if(await reviewWebhook(env,event))return json({received:true});
     const row = await load(env, event.data.object.metadata?.request_id || '');
     if (row && row.stripe_session_id === event.data.object.id) await confirmPayment(env,row);
   }
@@ -150,14 +159,17 @@ export async function handle(request, env) {
     const method = request.method;
     if (path[0] === 'health' && method === 'GET') {
       await env.DB.prepare('SELECT 1').first();
-      return json({ok:true,version:env.CF_PAGES_COMMIT_SHA || env.RELEASE_SHA || 'dev',registration:true,payments:Boolean(env.STRIPE_SECRET_KEY)});
+      return json({ok:true,version:env.CF_PAGES_COMMIT_SHA || env.RELEASE_SHA || 'dev',registration:true,payments:paymentReady(env),email:emailConfiguration(env)});
     }
     if (path[0] === 'stripe-webhook' && method === 'POST') return await webhook(request,env);
+    if (path[0] === 'email') return await handleEmailLink(request,env);
     if (!['GET','HEAD'].includes(method)) {
       const origin = request.headers.get('Origin');
       if (origin && origin !== url.origin) fail(403,'Use the form on this site.');
       if (request.headers.get('Sec-Fetch-Site') === 'cross-site') fail(403,'Use the form on this site.');
     }
+    const communicationResponse=await handleCommunications(request,env,path,method,{authenticate,administrator,body},availableReviewSlots);
+    if(communicationResponse)return communicationResponse;
     const connectionResponse=await handleConnections(request,env,path,method,{authenticate,administrator,body,expireUnpaid});
     if(connectionResponse)return connectionResponse;
     if (path[0] === 'register' && method === 'POST') {
@@ -172,6 +184,7 @@ export async function handle(request, env) {
       const id = crypto.randomUUID(), credential = token(), now = Date.now();
       await env.DB.prepare('INSERT INTO requests(id,token_hash,name,email,created_at,updated_at,ip_hash) VALUES(?,?,?,?,?,?,?)').bind(id,await digest(credential),name,email,now,now,ipHash).run();
       await audit(env,id,'registered');
+      await initializeContact(env,await load(env,id),data.emailOptIn===true);
       return json({id,token:credential,request:await visible(env,await load(env,id))},201,{'Set-Cookie':cookie(request,credential)});
     }
     if (path[0] === 'requests' && path[1]) {
@@ -195,8 +208,10 @@ export async function handle(request, env) {
         if (row.stripe_session_id) {
           const existing = await stripe(env,`checkout/sessions/${encodeURIComponent(row.stripe_session_id)}`);
           if (existing.payment_status === 'paid') { await confirmPayment(env,row); return json({paid:true}); }
+          if (!paymentReady(env)) fail(503,'Deposit payments are not fully connected yet. Your request is saved; there is nothing to pay now.');
           if (existing.status === 'open') return json({url:existing.url});
         }
+        if (!paymentReady(env)) fail(503,'Deposit payments are not fully connected yet. Your request is saved; there is nothing to pay now.');
         const session = await stripe(env,'checkout/sessions',{
           mode:'payment', 'payment_method_types[0]':'card', customer_email:row.email,
           success_url:`${url.origin}/?request=${row.id}&payment=returned#request`, cancel_url:`${url.origin}/?request=${row.id}#request`,
@@ -210,24 +225,24 @@ export async function handle(request, env) {
         if (!result.meta.changes) fail(409,'The request changed. Refresh before paying.');
         return json({url:session.url});
       }
-      if (method === 'POST' && path[2] === 'verify-payment') return json(await visible(env,await confirmPayment(env,row)));
+      if (method === 'POST' && path[2] === 'verify-payment') return json(await visible(env,await confirmReviewPayment(env,await confirmPayment(env,row))));
+      if (method === 'POST' && path[2] === 'upgrade-checkout') {
+        const data=await body(request);
+        return json(await createReviewCheckout(env,row,String(data.slotId),data.minutes,url.origin));
+      }
+      if (method === 'POST' && path[2] === 'cancel-upgrade') return json(await visible(env,await cancelReviewUpgrade(env,row)));
       if (method === 'GET' && path[2] === 'slots') {
         if (!row.paid_at) fail(403,'The deposit must be verified before booking.');
-        return json({slots:await openSlots(env)});
+        const minutes=Number(url.searchParams.get('minutes')||row.review_minutes||15);
+        if(!validReviewMinutes(minutes))fail(400,'Choose 15, 30, or 60 minutes.');
+        row=await confirmReviewPayment(env,row);
+        return json({slots:await availableReviewSlots(env,row,minutes)});
       }
       if (method === 'POST' && path[2] === 'book') {
         if (!row.paid_at || !['paid','booked'].includes(row.status)) fail(403,'The deposit must be verified before booking.');
         if (row.booked_slot_id) return json(await visible(env,row));
-        const data = await body(request), now=Date.now();
-        const slot = await env.DB.prepare('SELECT * FROM slots WHERE id=? AND starts_at>? AND starts_at<=? AND request_id IS NULL').bind(String(data.slotId),now,now+7*DAY).first();
-        if (!slot) fail(409,'That time is no longer available. Choose another.');
-        const result = await env.DB.batch([
-          env.DB.prepare("UPDATE slots SET request_id=? WHERE id=? AND request_id IS NULL AND EXISTS(SELECT 1 FROM requests WHERE id=? AND paid_at IS NOT NULL AND booked_slot_id IS NULL)").bind(row.id,slot.id,row.id),
-          env.DB.prepare("UPDATE requests SET booked_slot_id=?,status='booked',updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM slots WHERE id=? AND request_id=?)").bind(slot.id,now,row.id,slot.id,row.id)
-        ]);
-        if (!result[0].meta.changes) fail(409,'That time was just taken. Choose another.');
-        await audit(env,row.id,'booked');
-        return json(await visible(env,await load(env,row.id)));
+        const data = await body(request);
+        return json(await visible(env,await bookReview(env,row,String(data.slotId))));
       }
       fail(404,'Not found.');
     }
@@ -236,10 +251,10 @@ export async function handle(request, env) {
       if (path[1] === 'requests' && method === 'GET') {
         const rows=(await env.DB.prepare('SELECT * FROM requests ORDER BY created_at DESC LIMIT 200').all()).results;
         const grants=(await env.DB.prepare("SELECT * FROM access_grants WHERE state!='removed' ORDER BY created_at").all()).results;
-        const slots=(await env.DB.prepare('SELECT * FROM slots WHERE starts_at>? ORDER BY starts_at LIMIT 100').bind(Date.now()).all()).results;
-        return json({requests:await Promise.all(rows.map(row=>visible(env,row))),grants,slots,payments:Boolean(env.STRIPE_SECRET_KEY)});
+        const slots=(await env.DB.prepare('SELECT slots.*,(SELECT state FROM slot_claims WHERE slot_id=slots.id) AS claim_state FROM slots WHERE starts_at>? ORDER BY starts_at LIMIT 100').bind(Date.now()).all()).results;
+        return json({requests:await Promise.all(rows.map(row=>visible(env,row))),grants,slots,payments:paymentReady(env)});
       }
-      if (path[1] === 'cleanup' && method === 'POST') return json(await expireUnpaid(env));
+      if (path[1] === 'cleanup' && method === 'POST') return json({...await expireUnpaid(env),reviews:await reconcilePendingReviews(env)});
       if (path[1] === 'slots' && method === 'POST') {
         const data=await body(request), start=Number(data.startsAt), end=start+900000;
         if (!validSlot(start,end,Date.now())) fail(400,'Choose a future 15-minute slot, Monday–Saturday, 1–6pm Eastern.');
@@ -250,8 +265,8 @@ export async function handle(request, env) {
         return json({id},201);
       }
       if (path[1] === 'slots' && path[2] && method === 'DELETE') {
-        const result=await env.DB.prepare('DELETE FROM slots WHERE id=? AND request_id IS NULL').bind(path[2]).run();
-        if (!result.meta.changes) fail(409,'Booked slots cannot be removed here.');
+        const result=await env.DB.prepare('DELETE FROM slots WHERE id=? AND request_id IS NULL AND NOT EXISTS(SELECT 1 FROM slot_claims c WHERE c.slot_id=slots.id) AND NOT EXISTS(SELECT 1 FROM review_payments p WHERE p.slot_id=slots.id)').bind(path[2]).run();
+        if (!result.meta.changes) fail(409,'Booked, held, or payment-referenced slots cannot be removed here.');
         return json({removed:true});
       }
       if (path[1] === 'requests' && path[2] && method === 'POST') {
