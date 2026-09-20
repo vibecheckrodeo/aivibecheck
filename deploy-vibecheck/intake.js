@@ -7,14 +7,15 @@ const savedRequest = {
 let id = new URLSearchParams(location.search).get('request') || savedRequest.get();
 let access = new URLSearchParams(location.hash.slice(1)).get('access');
 let current, chosenSlot, connectionConfiguration = {};
+let slotLoad = 0;
 let returnedProvider = new URLSearchParams(location.search).get('connected');
 const time = value => new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'long',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(value));
 function notice(message, error=false){ $('notice').textContent=message; $('notice').hidden=false; $('notice').setAttribute('role',error?'alert':'status'); }
 async function api(path,method='GET',data){const response=await fetch(`/api/${path}`,{method,credentials:'same-origin',headers:{...(data?{'Content-Type':'application/json'}:{}),...(access?{Authorization:`Bearer ${access}`}:{})},body:data?JSON.stringify(data):undefined});const value=await response.json();if(!response.ok)throw new Error(value.error||'Please try again.');return value;}
-async function busy(button,fn){const label=button.textContent;button.disabled=true;button.textContent='Saving…';try{await fn();}catch(error){notice(error.message,true);}finally{button.textContent=label;button.disabled=false;}}
+async function busy(button,fn){const label=button.textContent;button.disabled=true;button.textContent='Saving…';try{await fn();}catch(error){notice(error.message,true);}finally{if(button.textContent==='Saving…'){button.textContent=label;button.disabled=false;}}}
 function count(){const n=$('problem').value.trim().split(/\s+/u).filter(Boolean).length;$('word-count').textContent=`${n.toLocaleString()} / 1,000 words`;$('word-count').classList.toggle('over',n>1000);$('problem').setCustomValidity(n>1000?'Please shorten this to 1,000 words or less.':'');$('problem').setAttribute('aria-invalid',String(n>1000));}
 function privateLink(){if(!access)return;$('private-link').value=`${location.origin}/?request=${id}#access=${access}`;$('private-link-box').hidden=false;}
-async function render(row){current=row;$('registration-form').hidden=true;$('request-state').hidden=false;privateLink();
+async function render(row){slotLoad++;current=row;$('registration-form').hidden=true;$('request-state').hidden=false;privateLink();
 const states={draft:['Your registration is saved.','Add your project details below. You can save and come back before submitting for review.'],submitted:['Your request is waiting for review.','I’ll look through what you’ve shared. Return here to see my response. There is nothing to pay yet.'],approved:['Your request is approved.','Review the agreed focus below. The next step is your deposit, then choosing a time.'],paid:['Your deposit is confirmed.','Choose an available time below.'],booked:['Your appointment is confirmed.','The meeting details are saved below.'],declined:['This request has been declined.','No deposit is due. The shared links have been removed from your request.'],expired:['The deposit deadline has passed.','Your shared links have been removed from this request. Separate account invitations are queued for removal in the relevant service.']};
 [$('status-title').textContent,$('status-copy').textContent]=states[row.status];$('project-form').hidden=row.status!=='draft';$('submitted-details').hidden=!['submitted','approved','paid','booked'].includes(row.status);$('approved').hidden=!['approved','paid'].includes(row.status);$('scheduling').hidden=!['paid','booked'].includes(row.status)||(row.booking&&row.booking.starts_at<=Date.now());$('confirmation').hidden=row.status!=='booked';$('edit-project').hidden=row.status!=='submitted';
 $('problem').value=row.description;$('links').value=row.links.join('\n');$('notes').value=row.access_notes;$('complete').checked=Boolean(row.completed_at);count();$('description-summary').textContent=row.description;$('shared-links').replaceChildren();
@@ -90,6 +91,7 @@ function configureDuration(){
   if(current.status==='booked'&&paidMinutes===60)$('scheduling').hidden=true;
 }
 async function loadSlots(){
+  const revision=++slotLoad;
   const minutes=Number($('review-minutes').value),paid=current.billing?.paid_cents||2500;
   const option=current.billing?.options?.find(item=>item.minutes===minutes);
   const due=option?.due_cents??Math.max(0,prices[minutes]-paid);
@@ -100,7 +102,10 @@ async function loadSlots(){
   $('upgrade-pending').hidden=!pending;$('cancel-upgrade').hidden=!pending;
   if(pending){$('upgrade-pending').textContent='An upgrade payment is pending. Continue checkout or cancel it before choosing a different time.';$('slots').append(node('p',current.booking?'Your original booking stays confirmed while the extra time is held.':'The selected time is held while payment is being confirmed.'));$('book-slot').textContent='Continue upgrade checkout';$('book-slot').disabled=!current.payment_ready;return;}
   if(due&&!current.payment_ready){$('slots').append(node('p','Payments for extra time are not connected yet. You can still book the 15 minutes covered by your deposit.'));return;}
-  const {slots}=await api(`requests/${id}/slots?minutes=${minutes}`);
+  let result;
+  try{result=await api(`requests/${id}/slots?minutes=${minutes}`);}catch(error){if(revision===slotLoad)throw error;return;}
+  if(revision!==slotLoad)return;
+  const {slots}=result;
   if(!slots.length){$('slots').append(node('p','There are no available times for this length in the next seven days. Your payment is recorded. Try a shorter session or check back for availability.'));return;}
   for(const slot of slots){const b=node('button',`${time(slot.starts_at)} · ${minutes} minutes`);b.type='button';b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>{chosenSlot=slot.id;for(const btn of $('slots').querySelectorAll('button'))btn.setAttribute('aria-pressed',String(btn===b));$('book-slot').disabled=false;});$('slots').append(b);}
 }
