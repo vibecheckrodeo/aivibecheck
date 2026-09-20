@@ -8,8 +8,7 @@ feedback. Codex performed substantial implementation work as well as copy
 editing on the current site. The coordinating model for this recorded work
 is identified as GPT-6; a more specific variant is not established here.
 
-Ashley confirmed that the $25 deposit covers the first 15 minutes. Extra
-time is $25 per 15 minutes, agreed before extending. This business-term
+Ashley confirmed that the $25 deposit covers the first 15 minutes. Prepaid sessions are $45 for 30 minutes or $80 for an hour, including the deposit. Extra time is reserved and paid before the call. This business-term
 confirmation does not establish final review of the blog or the paid flow.
 
 Project-specific session metadata verifies earlier landing-page work by
