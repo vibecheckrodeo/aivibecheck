@@ -23,6 +23,28 @@ function externalLink(href, label) {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return el('span', label || 'Invalid link');
   const link = el('a', label || href); link.href = url.href; link.target = '_blank'; link.rel = 'noreferrer'; return link;
 }
+function appendReply(card, row) {
+  if (['expired','declined'].includes(row.status)) return;
+  const section=el('section'), heading=el('h3','Your reply and time estimate');
+  const replyLabel=el('label','Reply to the customer'), reply=el('textarea');
+  reply.id=`reply-${row.id}`; replyLabel.htmlFor=reply.id; reply.rows=4; reply.maxLength=4000; reply.value=row.reply || '';
+  const estimateLabel=el('label','Estimated time needed'), estimate=el('select');
+  estimate.id=`estimate-${row.id}`; estimateLabel.htmlFor=estimate.id;
+  for(const minutes of [15,30,60]){const option=el('option',`${minutes} minutes`);option.value=minutes;estimate.append(option);}
+  estimate.value=row.estimated_minutes || 15;
+  const followLabel=el('label',null,'check'), follow=el('input');follow.type='checkbox';follow.checked=Boolean(row.upsell_enabled);
+  followLabel.append(follow,el('span','Extra time would help this customer. Enable optional follow-ups.'));
+  const countLabel=el('label','Maximum upgrade messages'), count=el('select');count.id=`drips-${row.id}`;countLabel.htmlFor=count.id;
+  for(const number of [3,4]){const option=el('option',String(number));option.value=number;count.append(option);}count.value=row.upsell_count || 3;
+  section.append(heading,replyLabel,reply,estimateLabel,estimate,followLabel,countLabel,count,el('p','Only opted-in, email-confirmed customers receive upgrade messages. The sequence stops after an upgrade, when time is unavailable, or when the call is within 24 hours. Material requests are separate.','help'),button('Save reply and estimate',async()=>{await api(`requests/${row.id}/reply`,'POST',{reply:reply.value,estimatedMinutes:Number(estimate.value),upsellEnabled:follow.checked,upsellCount:Number(count.value)});message('Reply saved on the request page. Its email is queued, not yet delivered.');}));
+  if(['draft','submitted'].includes(row.status)){
+    const materialLabel=el('label','Materials still needed'), materials=el('textarea');materials.id=`materials-${row.id}`;materialLabel.htmlFor=materials.id;materials.rows=2;materials.maxLength=2000;
+    section.append(materialLabel,materials,button('Queue material request',async()=>{await api(`requests/${row.id}/materials`,'POST',{message:materials.value});message('Material request queued separately from upgrade messages.');}));
+  }
+  const emails=el('div');
+  section.append(button('Check email status',async()=>{const status=await api(`requests/${row.id}/email`);emails.replaceChildren(el('p',`${status.transactional?'Sender configured':'Email sender not configured'} · ${status.verified?'Address confirmed':'Address not confirmed'} · ${status.consent?'Optional reminders enabled':'Optional reminders off'}`));for(const item of status.messages)emails.append(el('p',`${item.category} · ${item.kind} · ${item.state}${item.last_error?` · ${item.last_error}`:''}`));},false),emails);
+  card.append(section);
+}
 function showIntegrations(configuration) {
   $('github-configuration').textContent = configuration.github ? 'GitHub App is configured for customer authorization.' : 'Create the read-only GitHub App to let customers authorize a selected repository.';
   $('github-app-link').replaceChildren();
@@ -123,7 +145,7 @@ async function reload() {
   const [data, integrations, connected] = await Promise.all([api('requests'), api('integrations'), api('connections')]);
   if (!key || activeSession !== session) return;
   $('login').hidden = true; $('dashboard').hidden = false;
-  $('configuration').textContent = data.payments ? 'Stripe is connected. Requests must be approved before checkout.' : 'Stripe is not configured. Registration and review work; checkout remains unavailable. Add STRIPE_SECRET_KEY before inviting a deposit.';
+  $('configuration').textContent = data.payments ? 'Stripe is configured. Requests must be approved before checkout.' : 'Stripe is not configured. Registration and review work; checkout remains unavailable. Install the Stripe key and webhook secret before inviting a deposit.';
   showIntegrations(integrations); $('requests').replaceChildren();
   for (const row of data.requests) {
     const card = el('article', null, 'admin-card');
@@ -136,8 +158,10 @@ async function reload() {
       card.append(label, scope, button('Approve request', () => api(`requests/${row.id}`, 'POST', { action: 'approve', scope: scope.value })), button('Decline request', () => api(`requests/${row.id}`, 'POST', { action: 'decline' })));
     }
     if (row.scope) card.append(el('p', `Review focus: ${row.scope}`));
-    if (row.status === 'approved') card.append(el('p', 'Approval is visible on the customer’s private request page. No automatic email is sent.'));
-    if (row.booking) card.append(el('p', `Booked: ${date(row.booking.starts_at)}`));
+    if (row.status === 'approved') card.append(el('p', 'Approval is visible on the customer’s private request page. Check email status to see whether the notification has been delivered.'));
+    appendReply(card,row);
+    if (row.booking) card.append(el('p', `Booked: ${date(row.booking.starts_at)} · ${(row.booking.ends_at-row.booking.starts_at)/60000} minutes`));
+    if(row.pending_upgrade)card.append(el('p',`Upgrade awaiting confirmation: ${row.pending_upgrade.minutes} minutes · ${row.pending_upgrade.status} · checkout deadline ${date(row.pending_upgrade.expires_at)}. The time stays held until Stripe confirms payment or expiry. Use “Run due access cleanup” to reconcile it.`));
     appendConnections(card, row, connected.connections);
     if (!['expired', 'declined'].includes(row.status)) {
       const details = el('details'), summary = el('summary', 'Record a separate account invitation'); details.append(summary);
@@ -162,14 +186,15 @@ async function reload() {
   if (!data.grants.some(grant => grant.state === 'cleanup_due') && !pending.length) $('grants').append(el('p', 'No external-access removals are due.'));
   $('published-slots').replaceChildren();
   for (const slot of data.slots) {
-    const item = el('div', null, 'admin-card'); item.append(el('p', `${date(slot.starts_at)} · ${slot.request_id ? 'Booked' : 'Available'}`));
-    if (!slot.request_id) item.append(button('Remove this availability', () => api(`slots/${slot.id}`, 'DELETE')));
+    const item = el('div', null, 'admin-card'); item.append(el('p', `${date(slot.starts_at)} · ${slot.request_id || slot.claim_state==='booked' ? 'Booked' : slot.claim_state==='held' ? 'Held during checkout' : 'Available'}`));
+    if (!slot.request_id&&!slot.claim_state) item.append(button('Remove this availability', () => api(`slots/${slot.id}`, 'DELETE')));
     $('published-slots').append(item);
   }
 }
 $('login').addEventListener('submit', event => { event.preventDefault(); session++; key = $('admin-key').value; $('admin-key').value = ''; action(reload); });
 $('reload').addEventListener('click', () => action(reload));
 $('cleanup').addEventListener('click', () => action(async () => { const result = await api('cleanup', 'POST', {}); message(`Expired ${result.expired} unpaid requests. Review outstanding external access below.`); await reload(); }));
+$('run-email').addEventListener('click',()=>action(async()=>{const result=await api('email','POST',{});message(result.configured?`${result.accepted} messages accepted by the sender. Acceptance is separate from delivery.`:'Email sending is not configured. No messages were sent.');}));
 $('logout').addEventListener('click', () => { session++; key = ''; for (const id of ['requests', 'grants', 'published-slots', 'github-app-link']) $(id).replaceChildren(); $('dashboard').hidden = true; $('login').hidden = false; $('admin-status').hidden = true; });
 $('slot-form').addEventListener('submit', event => { event.preventDefault(); action(async () => { if (!/(Z|[+-]\d\d:\d\d)$/.test($('slot-start').value)) throw new Error('Include the time-zone offset.'); await api('slots', 'POST', { startsAt: Date.parse($('slot-start').value), zoomUrl: $('slot-zoom').value }); message('Appointment published.'); await reload(); }); });
 $('github-setup').addEventListener('submit', event => {
