@@ -12,7 +12,7 @@ function setup() {
   const register=async()=>{const r=await call('register','POST',{name:'QA example',email:'qa@example.com'});assert.equal(r.status,201);return r.data;};
   const submit=async(user,complete=true)=>call('requests/'+user.id,'PUT',{description:'My example project fails during deployment.',links:['https://example.com/project'],notes:'Read-only link.',complete},user.token);
   const approve=async(user)=>call('admin/requests/'+user.id,'POST',{action:'approve',scope:'Review the deployment failure.'},'test-admin');
-  const addSlot=(id='slot-1')=>{let start=Date.now()+86400000;start=Math.floor(start/900000)*900000;while(!validSlot(start,start+900000,Date.now()))start+=900000;sql.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').run(id,start,start+900000,'https://zoom.us/j/example',Date.now());return id;};
+  const addSlot=(id='slot-1')=>{let start=Date.now()+86400000;start=Math.floor(start/900000)*900000;while(!validSlot(start,start+900000,Date.now()))start+=900000;sql.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').run(id,start,start+900000,'https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0001',Date.now());return id;};
   return {sql,env,call,register,submit,approve,addSlot};
 }
 
@@ -22,7 +22,7 @@ async function fixture(){
  const t=setup(),u=await t.register();await t.submit(u);await t.approve(u);
  t.sql.prepare("UPDATE requests SET paid_at=?,status='paid' WHERE id=?").run(Date.now(),u.id);
  const first=t.addSlot('s0'),start=t.sql.prepare('SELECT starts_at FROM slots WHERE id=?').get(first).starts_at;
- for(let i=1;i<8;i++)t.sql.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').run('s'+i,start+i*900000,start+(i+1)*900000,'https://zoom.us/j/example',Date.now());
+ for(let i=1;i<8;i++)t.sql.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').run('s'+i,start+i*900000,start+(i+1)*900000,'https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0001',Date.now());
  t.env.STRIPE_SECRET_KEY='test-key';t.env.STRIPE_WEBHOOK_SECRET='test-webhook';
  const sessions=new Map(),creates=[];
  t.env.FETCH=async(url,opts)=>{
@@ -61,9 +61,9 @@ test('60min costs55 after deposit and35 after a confirmed30min review',async()=>
  const other=await fixture();await other.upgrade(60);assert.equal([...other.sessions.values()][0].amount_total,5500);
 });
 
-test('missing, mismatchedZoom, taken, too late and unsupported durations cannot open upgrade',async()=>{
- const t=await fixture();t.sql.prepare("UPDATE slots SET zoom_url='https://zoom.us/j/other' WHERE id='s1'").run();assert.equal((await t.upgrade()).status,409);
- t.sql.prepare("UPDATE slots SET zoom_url='https://zoom.us/j/example' WHERE id='s1'").run();t.sql.prepare("DELETE FROM slots WHERE id='s1'").run();assert.equal((await t.upgrade()).status,409);
+test('missing, mismatched meeting links, taken, too late and unsupported durations cannot open upgrade',async()=>{
+ const t=await fixture();t.sql.prepare("UPDATE slots SET zoom_url='https://meet.proton.me/join/id-OTHERROOM1#pwd-TESTPASS0002' WHERE id='s1'").run();assert.equal((await t.upgrade()).status,409);
+ t.sql.prepare("UPDATE slots SET zoom_url='https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0001' WHERE id='s1'").run();t.sql.prepare("DELETE FROM slots WHERE id='s1'").run();assert.equal((await t.upgrade()).status,409);
  assert.equal((await t.upgrade(45)).status,400);assert.equal((await t.upgrade('30')).status,400);assert.equal(t.creates.length,0);
  const late=await fixture();assert.equal((await availableReviewSlots(late.env,late.row(),30,late.start-30*60000)).length,6);
  assert.ok(!(await availableReviewSlots(late.env,late.row(),30,late.start-30*60000)).some(s=>s.id==='s0'));

@@ -1,5 +1,6 @@
 import {availableReviewSlots,reviewBilling,confirmReviewPayment,createReviewCheckout,cancelReviewUpgrade,bookReview,reviewWebhook,reconcilePendingReviews,validReviewMinutes} from './review-payments.js';
 export {availableReviewSlots,reconcilePendingReviews} from './review-payments.js';
+import {validateMeetingUrl} from './meetings.js';
 import {handleConnections,removeRequestConnections,retryConnectionCleanup} from './connections.js';
 import {handleCommunications,handleEmailLink,initializeContact,emailConfiguration} from './communications.js';
 const DAY = 86400000;
@@ -119,7 +120,11 @@ async function visible(env, row) {
   safe.payment_ready = paymentReady(env);
   Object.assign(safe,await reviewBilling(env,row));
   if (row.booked_slot_id) safe.booking = await env.DB.prepare('SELECT starts_at,ends_at,zoom_url FROM slots WHERE id=? AND request_id=?').bind(row.booked_slot_id, row.id).first();
-  if(safe.booking)safe.booking.ends_at=safe.booking.starts_at+(row.review_minutes||15)*60000;
+  if(safe.booking){
+    safe.booking.ends_at=safe.booking.starts_at+(row.review_minutes||15)*60000;
+    // Retain zoom_url for cached clients; the stored column predates Proton Meet.
+    safe.booking.meeting_url=safe.booking.zoom_url;
+  }
   return safe;
 }
 async function openSlots(env, now = Date.now()) {
@@ -258,10 +263,9 @@ export async function handle(request, env) {
       if (path[1] === 'slots' && method === 'POST') {
         const data=await body(request), start=Number(data.startsAt), end=start+900000;
         if (!validSlot(start,end,Date.now())) fail(400,'Choose a future 15-minute slot, Monday–Saturday, 1–6pm Eastern.');
-        let zoom; try { zoom=new URL(data.zoomUrl); } catch { fail(400,'Enter the real Zoom meeting URL.'); }
-        if (zoom.protocol!=='https:' || !(zoom.hostname==='zoom.us'||zoom.hostname.endsWith('.zoom.us'))) fail(400,'Use an https:// Zoom meeting URL.');
+        const meetingUrl=validateMeetingUrl(data.meetingUrl ?? data.zoomUrl);
         const id=crypto.randomUUID();
-        await env.DB.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').bind(id,start,end,zoom.href,Date.now()).run();
+        await env.DB.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').bind(id,start,end,meetingUrl,Date.now()).run();
         return json({id},201);
       }
       if (path[1] === 'slots' && path[2] && method === 'DELETE') {
