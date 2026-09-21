@@ -7,9 +7,9 @@
   };
   const themes = [
     { id: 'butter', name: 'Butter', paper: '#fff2c9' },
-    { id: 'geometric', name: 'Geometric', sheet: 'typographic', crop: '55 185 665 125', paper: '#fffefd' },
-    { id: 'ribbon', name: 'Ribbon', sheet: 'expressive', crop: '20 615 735 305', paper: '#fffefd' },
-    { id: 'expressive-serif', name: 'Expressive serif', sheet: 'expressive', crop: '810 105 700 300', paper: '#fffefd' },
+    { id: 'geometric', name: 'Geometric', sheet: 'typographic', crop: '55 185 665 125', paper: '#e8ebe8' },
+    { id: 'ribbon', name: 'Ribbon', sheet: 'expressive', crop: '20 615 735 305', paper: '#fff7d9' },
+    { id: 'expressive-serif', name: 'Expressive serif', sheet: 'expressive', crop: '810 105 700 300', paper: '#ffe1dc' },
   ];
   const storageKey = 'vibecheck-brand-theme';
   const validTheme = id => themes.findIndex(theme => theme.id === id);

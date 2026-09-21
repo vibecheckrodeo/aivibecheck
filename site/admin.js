@@ -196,7 +196,7 @@ $('reload').addEventListener('click', () => action(reload));
 $('cleanup').addEventListener('click', () => action(async () => { const result = await api('cleanup', 'POST', {}); message(`Expired ${result.expired} unpaid requests. Review outstanding external access below.`); await reload(); }));
 $('run-email').addEventListener('click',()=>action(async()=>{const result=await api('email','POST',{});message(result.configured?`${result.accepted} messages accepted by the sender. Acceptance is separate from delivery.`:'Email sending is not configured. No messages were sent.');}));
 $('logout').addEventListener('click', () => { session++; key = ''; for (const id of ['requests', 'grants', 'published-slots', 'github-app-link']) $(id).replaceChildren(); $('dashboard').hidden = true; $('login').hidden = false; $('admin-status').hidden = true; });
-$('slot-form').addEventListener('submit', event => { event.preventDefault(); action(async () => { if (!/(Z|[+-]\d\d:\d\d)$/.test($('slot-start').value)) throw new Error('Include the time-zone offset.'); await api('slots', 'POST', { startsAt: Date.parse($('slot-start').value), zoomUrl: $('slot-zoom').value }); message('Appointment published.'); await reload(); }); });
+$('slot-form').addEventListener('submit', event => { event.preventDefault(); action(async () => { if (!/(Z|[+-]\d\d:\d\d)$/.test($('slot-start').value)) throw new Error('Include the time-zone offset.'); await api('slots', 'POST', { startsAt: Date.parse($('slot-start').value), meetingUrl: $('slot-meeting').value }); message('Appointment published.'); await reload(); }); });
 $('github-setup').addEventListener('submit', event => {
   event.preventDefault();
   action(async () => {

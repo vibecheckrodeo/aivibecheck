@@ -158,7 +158,7 @@ async function scheduleReceipts(env) {
       if(slot){
         const minutes=row.review_minutes || 15;
         const date=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'long',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(slot.starts_at));
-        await queueEmail(env,row,{kind:`booked-${slot.id}-${minutes}`,subject:'Your Vibe Check appointment',message:`Your ${minutes}-minute review is booked for ${date}.\n\nJoin on Zoom: ${slot.zoom_url}\n\nI’ll spend the time you booked with you.\n\nAshley`});
+        await queueEmail(env,row,{kind:`booked-${slot.id}-${minutes}`,subject:'Your Vibe Check appointment',message:`Your ${minutes}-minute review is booked for ${date}.\n\nJoin your review: ${slot.zoom_url}\n\nI’ll spend the time you booked with you.\n\nAshley`});
       }
     }
   }
