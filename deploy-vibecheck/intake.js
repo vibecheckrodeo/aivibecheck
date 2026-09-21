@@ -75,7 +75,18 @@ for(const provider of ['github','figma'])$(`connect-${provider}-form`).addEventL
   });
 });
 async function refresh(){if(id)await render(await api(`requests/${id}`));}
-$('registration-form').addEventListener('submit',event=>{event.preventDefault();busy(event.submitter,async()=>{const result=await api('register','POST',{name:$('name').value,email:$('email').value,website:$('website').value,emailOptIn:$('email-opt-in').checked});id=result.id;access=result.token;savedRequest.set(id);const returnUrl=new URL(location.href);returnUrl.searchParams.set('request',id);const theme=returnUrl.searchParams.get('theme');if(theme){returnUrl.searchParams.delete('theme');returnUrl.searchParams.append('theme',theme);}returnUrl.hash=`access=${access}`;history.replaceState(history.state,'',returnUrl.href);await render(result.request);notice('Your registration is saved. Keep your private link, then add the project details.');$('problem').focus();});});
+function registrationAttribution(){
+  const params=new URLSearchParams(location.search),themes=['butter','geometric','ribbon','expressive-serif'];
+  const theme=document.documentElement?.dataset?.theme;
+  const result=themes.includes(theme)?{theme}:{};
+  if(params.has('request')||new URLSearchParams(location.hash.slice(1)).has('access'))return result;
+  if(params.get('utm_source')==='linkedin'&&params.get('utm_medium')==='paid_social'&&params.get('utm_campaign')==='launch_theme_01'){
+    Object.assign(result,{source:'linkedin',medium:'paid_social',campaign:'launch_theme_01'});
+    const content=params.get('utm_content');if(themes.includes(content))result.content=content;
+  }
+  return result;
+}
+$('registration-form').addEventListener('submit',event=>{event.preventDefault();busy(event.submitter,async()=>{const result=await api('register','POST',{name:$('name').value,email:$('email').value,website:$('website').value,emailOptIn:$('email-opt-in').checked,attribution:registrationAttribution()});id=result.id;access=result.token;savedRequest.set(id);const returnUrl=new URL(location.href);returnUrl.searchParams.set('request',id);const theme=returnUrl.searchParams.get('theme');if(theme){returnUrl.searchParams.delete('theme');returnUrl.searchParams.append('theme',theme);}returnUrl.hash=`access=${access}`;history.replaceState(history.state,'',returnUrl.href);await render(result.request);notice('Your registration is saved. Keep your private link, then add the project details.');$('problem').focus();});});
 $('problem').addEventListener('input',count);$('complete').addEventListener('change',()=>{$('save-project').textContent=$('complete').checked?'Submit request for review':'Save project details';});
 $('project-form').addEventListener('submit',event=>{event.preventDefault();busy(event.submitter,async()=>{const row=await api(`requests/${id}`,'PUT',{description:$('problem').value,links:$('links').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),notes:$('notes').value,complete:$('complete').checked});await render(row);notice(row.status==='submitted'?'Your request has been submitted for review.':'Your project details are saved.');});});
 $('edit-project').addEventListener('click',()=>{$('project-form').hidden=false;$('submitted-details').hidden=true;$('save-project').textContent='Save changes';$('problem').focus();});$('refresh').addEventListener('click',()=>busy($('refresh'),refresh));

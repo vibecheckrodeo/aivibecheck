@@ -1,4 +1,5 @@
-import {availableReviewSlots,reviewBilling,confirmReviewPayment,createReviewCheckout,cancelReviewUpgrade,bookReview,reviewWebhook,reconcilePendingReviews,validReviewMinutes} from './review-payments.js';
+import {availableReviewSlots,adminReviewSlots,reviewBilling,confirmReviewPayment,createReviewCheckout,cancelReviewUpgrade,bookReview,reviewWebhook,reconcilePendingReviews,validReviewMinutes} from './review-payments.js';
+import {campaignAttribution,campaignResults} from './campaigns.js';
 export {availableReviewSlots,reconcilePendingReviews} from './review-payments.js';
 import {validateMeetingUrl} from './meetings.js';
 import {handleConnections,removeRequestConnections,retryConnectionCleanup} from './connections.js';
@@ -115,7 +116,7 @@ export async function expireUnpaid(env, now = Date.now()) {
   return { expired };
 }
 async function visible(env, row) {
-  const { token_hash, ip_hash, stripe_session_id, ...safe } = row;
+  const { token_hash, ip_hash, stripe_session_id, attribution, ...safe } = row;
   safe.links = JSON.parse(safe.links);
   safe.payment_ready = paymentReady(env);
   Object.assign(safe,await reviewBilling(env,row));
@@ -128,7 +129,7 @@ async function visible(env, row) {
   return safe;
 }
 async function openSlots(env, now = Date.now()) {
-  return (await env.DB.prepare('SELECT id,starts_at,ends_at FROM slots WHERE request_id IS NULL AND NOT EXISTS(SELECT 1 FROM slot_claims c WHERE c.slot_id=slots.id) AND starts_at>? AND starts_at<=? ORDER BY starts_at').bind(now, now + 7 * DAY).all()).results;
+  return availableReviewSlots(env,{id:'',review_minutes:15},15,now);
 }
 export function validSlot(start, end, now) {
   if (!Number.isFinite(start) || end - start !== 15 * 60000 || start <= now) return false;
@@ -187,7 +188,7 @@ export async function handle(request, env) {
       const recent = await env.DB.prepare('SELECT count(*) AS n FROM requests WHERE ip_hash=? AND created_at>?').bind(ipHash,Date.now()-3600000).first();
       if (recent.n >= 10) fail(429,'Too many registrations. Please try again later.');
       const id = crypto.randomUUID(), credential = token(), now = Date.now();
-      await env.DB.prepare('INSERT INTO requests(id,token_hash,name,email,created_at,updated_at,ip_hash) VALUES(?,?,?,?,?,?,?)').bind(id,await digest(credential),name,email,now,now,ipHash).run();
+      await env.DB.prepare('INSERT INTO requests(id,token_hash,name,email,created_at,updated_at,ip_hash,attribution) VALUES(?,?,?,?,?,?,?,?)').bind(id,await digest(credential),name,email,now,now,ipHash,JSON.stringify(campaignAttribution(data.attribution))).run();
       await audit(env,id,'registered');
       await initializeContact(env,await load(env,id),data.emailOptIn===true);
       return json({id,token:credential,request:await visible(env,await load(env,id))},201,{'Set-Cookie':cookie(request,credential)});
@@ -253,10 +254,11 @@ export async function handle(request, env) {
     }
     if (path[0] === 'admin') {
       await administrator(request,env);
+      if(path.length===2&&path[1]==='campaigns'&&method==='GET')return json(await campaignResults(env));
       if (path[1] === 'requests' && method === 'GET') {
         const rows=(await env.DB.prepare('SELECT * FROM requests ORDER BY created_at DESC LIMIT 200').all()).results;
         const grants=(await env.DB.prepare("SELECT * FROM access_grants WHERE state!='removed' ORDER BY created_at").all()).results;
-        const slots=(await env.DB.prepare('SELECT slots.*,(SELECT state FROM slot_claims WHERE slot_id=slots.id) AS claim_state FROM slots WHERE starts_at>? ORDER BY starts_at LIMIT 100').bind(Date.now()).all()).results;
+        const slots=await adminReviewSlots(env);
         return json({requests:await Promise.all(rows.map(row=>visible(env,row))),grants,slots,payments:paymentReady(env)});
       }
       if (path[1] === 'cleanup' && method === 'POST') return json({...await expireUnpaid(env),reviews:await reconcilePendingReviews(env)});

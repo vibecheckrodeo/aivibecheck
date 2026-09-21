@@ -161,6 +161,42 @@ test('customer availability does not reconcile other customers Stripe attempts',
  assert.equal((await t.call('requests/'+other.id+'/slots?minutes=30','GET',null,other.token)).status,200);
 });
 
+test('a booked room belongs to one customer, including later slots with another password',async()=>{
+ const t=await fixture(),other=await t.register();
+ t.sql.prepare("UPDATE requests SET paid_at=?,status='paid' WHERE id=?").run(Date.now(),other.id);
+ assert.equal((await t.call('requests/'+t.u.id+'/book','POST',{slotId:'s0'},t.u.token)).status,200);
+ t.sql.prepare("UPDATE slots SET zoom_url='https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0002' WHERE id='s4'").run();
+ assert.deepEqual((await t.call('requests/'+other.id+'/slots','GET',null,other.token)).data.slots,[]);
+ assert.equal((await t.call('requests/'+other.id+'/book','POST',{slotId:'s4'},other.token)).status,409);
+ const admin=(await t.call('admin/requests','GET',null,'test-admin')).data;
+ assert.equal(admin.slots.find(s=>s.id==='s4').room_reserved,1);
+ const unpaid=await t.register();await t.submit(unpaid);await t.approve(unpaid);
+ assert.equal((await t.call('requests/'+unpaid.id+'/checkout','POST',{},unpaid.token)).status,409,'do not offer a deposit when only another customer’s room remains');
+ assert.equal((await t.upgrade(30)).status,200,'the original customer can extend their appointment');
+ t.sql.prepare("UPDATE slots SET zoom_url='https://meet.proton.me/join/id-OTHERROOM1#pwd-TESTPASS0002' WHERE id='s4'").run();
+ assert.equal((await t.call('requests/'+other.id+'/book','POST',{slotId:'s4'},other.token)).status,200);
+});
+
+test('an unpaid checkout reserves the room until Stripe confirms expiration',async()=>{
+ const t=await fixture(),other=await t.register();
+ t.sql.prepare("UPDATE requests SET paid_at=?,status='paid' WHERE id=?").run(Date.now(),other.id);
+ assert.equal((await t.upgrade()).status,200);
+ assert.deepEqual((await t.call('requests/'+other.id+'/slots','GET',null,other.token)).data.slots,[]);
+ assert.equal((await t.call('requests/'+t.u.id+'/cancel-upgrade','POST',{},t.u.token)).status,200);
+ assert.ok((await t.call('requests/'+other.id+'/slots','GET',null,other.token)).data.slots.length>0);
+});
+
+test('concurrent buyers cannot claim different times in the same room',async()=>{
+ const t=await fixture(),other=await t.register();
+ t.sql.prepare("UPDATE requests SET paid_at=?,status='paid' WHERE id=?").run(Date.now(),other.id);
+ const results=await Promise.all([
+  t.call('requests/'+t.u.id+'/book','POST',{slotId:'s0'},t.u.token),
+  t.call('requests/'+other.id+'/book','POST',{slotId:'s4'},other.token)
+ ]);
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+ assert.equal(t.sql.prepare('SELECT count(DISTINCT request_id) n FROM slot_claims').get().n,1);
+});
+
 test('cron expiry while foreground is paused cannot revive an uncreated attempt or strand holds',async()=>{
  const t=await fixture(),prepare=t.env.DB.prepare;let pause=true;
  t.env.DB.prepare=query=>{const statement=prepare(query);if(query.startsWith('UPDATE review_payments SET claims_ready=1')){const bind=statement.bind;statement.bind=(...args)=>{const bound=bind(...args),run=bound.run;bound.run=async()=>{if(pause){pause=false;t.sql.prepare('UPDATE review_payments SET checkout_expires_at=?').run(Date.now()-1);await reconcilePendingReviews(t.env);}return run();};return bound;};}return statement;};

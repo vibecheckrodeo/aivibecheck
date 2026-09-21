@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync,readdirSync } from 'node:fs';
 import { handle, expireUnpaid, confirmPayment, validateProject, validSlot } from '../server/api.js';
+import {campaignAttribution} from '../server/campaigns.js';
 
 function setup() {
   const sql=new DatabaseSync(':memory:');for(const file of readdirSync('migrations').filter(name=>name.endsWith('.sql')).sort())sql.exec(readFileSync('migrations/'+file,'utf8'));
@@ -15,6 +16,35 @@ function setup() {
   const addSlot=(id='slot-1')=>{let start=Date.now()+86400000;start=Math.floor(start/900000)*900000;while(!validSlot(start,start+900000,Date.now()))start+=900000;sql.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').run(id,start,start+900000,'https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0001',Date.now());return id;};
   return {sql,env,call,register,submit,approve,addSlot};
 }
+test('campaign labels discard unknown values and retain no arbitrary customer text',()=>{
+ assert.deepEqual(campaignAttribution({theme:'ribbon',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'butter',request:'private-token',email:'private@example.com'}),{theme:'ribbon',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'butter'});
+ for(const input of [null,[],{source:'https://private.example',theme:'private@example.com',content:'private-token'},'private-token'])assert.deepEqual(campaignAttribution(input),{});
+});
+test('registration attribution stays fixed through editing and is hidden from customer responses',async()=>{
+ const t=setup(),labels={theme:'butter',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'ribbon'};
+ const registered=await t.call('register','POST',{name:'QA example',email:'qa@example.com',attribution:labels});
+ assert.equal(registered.status,201);const u=registered.data;assert.equal(u.request.attribution,undefined);
+ await t.call('requests/'+u.id,'PUT',{description:'My deployment needs help.',links:[],notes:'',complete:true,attribution:{theme:'geometric'}},u.token);
+ assert.deepEqual(JSON.parse(t.sql.prepare('SELECT attribution FROM requests WHERE id=?').get(u.id).attribution),labels);
+ assert.equal((await t.call('requests/'+u.id,'GET',null,u.token)).data.attribution,undefined);
+});
+test('campaign report requires admin and counts payments without multiplying registrations',async()=>{
+ const t=setup(),labels={theme:'butter',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'butter'};
+ const u=(await t.call('register','POST',{name:'QA example',email:'qa@example.com',attribution:labels})).data;
+ await t.submit(u);await t.approve(u);const slot=t.addSlot('campaign-slot');
+ t.sql.prepare("UPDATE requests SET paid_at=?,booked_slot_id=?,status='booked',review_minutes=60 WHERE id=?").run(Date.now(),slot,u.id);
+ const insert=t.sql.prepare("INSERT INTO review_payments(id,request_id,minutes,from_minutes,amount_cents,total_cents,slot_id,status,checkout_expires_at,stripe_payload,created_at,paid_at) VALUES(?,?,?,?,?,?,?,'paid',?,'{}',?,?)");
+ insert.run('upgrade30',u.id,30,15,2000,4500,slot,Date.now(),Date.now(),Date.now());
+ insert.run('upgrade60',u.id,60,30,3500,8000,slot,Date.now(),Date.now(),Date.now());
+ await t.register();
+ assert.equal((await t.call('admin/campaigns')).status,401);
+ assert.equal((await t.call('admin/campaigns','GET',null,u.token)).status,401);
+ const result=(await t.call('admin/campaigns','GET',null,'test-admin')).data;
+ const ad=result.campaigns.find(row=>row.source==='linkedin');
+ assert.deepEqual(ad,{source:'linkedin',campaign:'launch_theme_01',content:'butter',theme:'butter',registrations:1,submissions:1,approvals:1,deposits:1,bookings:1,gross_cents:8000});
+ assert.equal(result.campaigns.find(row=>row.source==='unattributed').gross_cents,0);
+ assert.ok(!JSON.stringify(result).includes(u.id));assert.ok(!JSON.stringify(result).includes('qa@example.com'));
+});
 test('registration persists identity, protects requests, and does not imply payment',async()=>{const t=setup(),u=await t.register();assert.equal(u.request.status,'draft');assert.equal(u.request.paid_at,null);assert.equal(u.request.expires_at,null);assert.equal(u.request.token_hash,undefined);assert.equal((await t.call('requests/'+u.id)).status,401);assert.equal((await t.call('requests/'+u.id,'GET',null,'a'.repeat(64))).status,401);assert.equal((await t.call('requests/'+u.id,'GET',null,u.token)).status,200);assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{},u.token)).status,409);});
 test('validates the real word limit and prevents unsafe project URLs',()=>{assert.equal(validateProject({description:Array(1000).fill('word').join(' '),links:['https://example.com']}).links.length,1);assert.throws(()=>validateProject({description:Array(1001).fill('word').join(' '),links:['https://example.com']}),/1,000/);for(const link of ['javascript:alert(1)',['https://','username',':','secret','@example.com'].join('')])assert.throws(()=>validateProject({description:'Example',links:[link]}));});
 test('deadline begins only after completion and editing never restarts it',async()=>{const t=setup(),u=await t.register();assert.equal((await t.submit(u,false)).data.expires_at,null);const sent=(await t.submit(u)).data;assert.equal(sent.status,'submitted');assert.equal(sent.expires_at-sent.completed_at,7*86400000);const edit=(await t.submit(u,false)).data;assert.equal(edit.expires_at,sent.expires_at);assert.equal(edit.status,'submitted');});

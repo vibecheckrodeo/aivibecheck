@@ -1,5 +1,10 @@
 const BLOCK=900000, LEAD=35*60000;
 const TOTALS={15:2500,30:4500,60:8000};
+// A password change does not make a room a different meeting. Pending holds
+// reserve its identity too; the guarded claim repeats this predicate atomically.
+const privateRoom=`NOT EXISTS(SELECT 1 FROM slots room LEFT JOIN slot_claims held ON held.slot_id=room.id
+  WHERE substr(room.zoom_url,1,instr(room.zoom_url||'#','#')-1)=substr(s.zoom_url,1,instr(s.zoom_url||'#','#')-1)
+  AND (coalesce(room.request_id!=?,0) OR coalesce(held.request_id!=?,0)))`;
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const load=(env,id)=>env.DB.prepare('SELECT * FROM requests WHERE id=?').bind(id).first();
 const pending=(env,id)=>env.DB.prepare("SELECT * FROM review_payments WHERE request_id=? AND status IN ('creating','open')").bind(id).first();
@@ -26,7 +31,7 @@ async function range(env,slotId,minutes){
 export async function availableReviewSlots(env,row,minutes=15,now=Date.now()){
   if(!validReviewMinutes(minutes)||minutes<(row.review_minutes||15))return [];
   const limit=minutes>15?now+LEAD:now;
-  const all=(await env.DB.prepare('SELECT s.*,c.request_id AS claimed_by FROM slots s LEFT JOIN slot_claims c ON c.slot_id=s.id WHERE s.starts_at>? AND s.starts_at<=? ORDER BY s.starts_at').bind(limit,now+7*86400000).all()).results;
+  const all=(await env.DB.prepare(`SELECT s.*,c.request_id AS claimed_by FROM slots s LEFT JOIN slot_claims c ON c.slot_id=s.id WHERE s.starts_at>? AND s.starts_at<=? AND ${privateRoom} ORDER BY s.starts_at`).bind(limit,now+7*86400000,row.id,row.id).all()).results;
   const byStart=new Map(all.map(slot=>[slot.starts_at,slot]));
   const result=[];
   for(const start of all){
@@ -36,6 +41,10 @@ export async function availableReviewSlots(env,row,minutes=15,now=Date.now()){
   }
   return result;
 }
+export async function adminReviewSlots(env,now=Date.now()){
+  return (await env.DB.prepare(`SELECT s.*,(SELECT state FROM slot_claims WHERE slot_id=s.id) AS claim_state,
+    NOT(${privateRoom}) AS room_reserved FROM slots s WHERE starts_at>? ORDER BY starts_at LIMIT 100`).bind('','',now).all()).results;
+}
 async function claim(env,row,slotId,minutes,paymentId){
   const blocks=await range(env,slotId,minutes),count=minutes/15;
   if(blocks.length!==count||blocks.some((slot,i)=>slot.starts_at!==blocks[0].starts_at+i*BLOCK))fail(409,'That continuous review time is no longer available.');
@@ -43,12 +52,13 @@ async function claim(env,row,slotId,minutes,paymentId){
   // The availability predicate applies to the WHOLE range before any INSERT.
   await env.DB.prepare(`INSERT OR IGNORE INTO slot_claims(slot_id,request_id,payment_id,state)
     SELECT s.id,?,?,? FROM slots s WHERE s.starts_at>=? AND s.starts_at<? AND s.zoom_url=? AND s.ends_at=s.starts_at+?
+    AND ${privateRoom}
     AND EXISTS(SELECT 1 FROM requests r WHERE r.id=? AND r.paid_at IS NOT NULL AND r.review_minutes=? AND (r.booked_slot_id IS NULL OR r.booked_slot_id=?)
       AND (? IS NOT NULL OR (r.booked_slot_id IS NULL AND NOT EXISTS(SELECT 1 FROM review_payments p WHERE p.request_id=r.id AND p.status IN ('creating','open'))))
       AND (? IS NULL OR EXISTS(SELECT 1 FROM review_payments active WHERE active.id=? AND active.request_id=r.id AND active.status IN ('creating','open')))
       AND NOT EXISTS(SELECT 1 FROM slot_claims own JOIN slots os ON os.id=own.slot_id WHERE own.request_id=r.id AND NOT(r.booked_slot_id IS NOT NULL AND own.state='booked' AND os.starts_at>=(SELECT starts_at FROM slots WHERE id=r.booked_slot_id) AND os.starts_at<(SELECT starts_at FROM slots WHERE id=r.booked_slot_id)+r.review_minutes*60000 OR coalesce(own.payment_id=? AND own.state='held',0))))
     AND (SELECT count(*) FROM slots t WHERE t.starts_at>=? AND t.starts_at<? AND t.zoom_url=? AND t.ends_at=t.starts_at+?
-      AND (t.request_id IS NULL OR t.request_id=?) AND NOT EXISTS(SELECT 1 FROM slot_claims c WHERE c.slot_id=t.id AND c.request_id!=?))=?`).bind(row.id,paymentId,paymentId?'held':'booked',start.starts_at,end,start.zoom_url,BLOCK,row.id,row.review_minutes||15,slotId,paymentId,paymentId,paymentId,paymentId,start.starts_at,end,start.zoom_url,BLOCK,row.id,row.id,count).run();
+      AND (t.request_id IS NULL OR t.request_id=?) AND NOT EXISTS(SELECT 1 FROM slot_claims c WHERE c.slot_id=t.id AND c.request_id!=?))=?`).bind(row.id,paymentId,paymentId?'held':'booked',start.starts_at,end,start.zoom_url,BLOCK,row.id,row.id,row.id,row.review_minutes||15,slotId,paymentId,paymentId,paymentId,paymentId,start.starts_at,end,start.zoom_url,BLOCK,row.id,row.id,count).run();
   const held=await env.DB.prepare('SELECT count(*) AS n FROM slot_claims WHERE request_id=? AND slot_id IN (SELECT id FROM slots WHERE starts_at>=? AND starts_at<?)').bind(row.id,start.starts_at,end).first();
   if(held.n!==count)fail(409,'That time was just taken. Choose another.');
   return start;

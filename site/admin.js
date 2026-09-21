@@ -186,7 +186,7 @@ async function reload() {
   if (!data.grants.some(grant => grant.state === 'cleanup_due') && !pending.length) $('grants').append(el('p', 'No external-access removals are due.'));
   $('published-slots').replaceChildren();
   for (const slot of data.slots) {
-    const item = el('div', null, 'admin-card'); item.append(el('p', `${date(slot.starts_at)} · ${slot.request_id || slot.claim_state==='booked' ? 'Booked' : slot.claim_state==='held' ? 'Held during checkout' : 'Available'}`));
+    const item = el('div', null, 'admin-card'); item.append(el('p', `${date(slot.starts_at)} · ${slot.request_id || slot.claim_state==='booked' ? 'Booked' : slot.claim_state==='held' ? 'Held during checkout' : slot.room_reserved ? 'Room reserved for an existing customer' : 'Available'}`));
     if (!slot.request_id&&!slot.claim_state) item.append(button('Remove this availability', () => api(`slots/${slot.id}`, 'DELETE')));
     $('published-slots').append(item);
   }
@@ -195,7 +195,7 @@ $('login').addEventListener('submit', event => { event.preventDefault(); session
 $('reload').addEventListener('click', () => action(reload));
 $('cleanup').addEventListener('click', () => action(async () => { const result = await api('cleanup', 'POST', {}); message(`Expired ${result.expired} unpaid requests. Review outstanding external access below.`); await reload(); }));
 $('run-email').addEventListener('click',()=>action(async()=>{const result=await api('email','POST',{});message(result.configured?`${result.accepted} messages accepted by the sender. Acceptance is separate from delivery.`:'Email sending is not configured. No messages were sent.');}));
-$('logout').addEventListener('click', () => { session++; key = ''; for (const id of ['requests', 'grants', 'published-slots', 'github-app-link']) $(id).replaceChildren(); $('dashboard').hidden = true; $('login').hidden = false; $('admin-status').hidden = true; });
+$('logout').addEventListener('click', () => { session++; key = ''; for (const id of ['requests', 'grants', 'published-slots', 'github-app-link', 'campaign-results']) $(id).replaceChildren(); $('dashboard').hidden = true; $('login').hidden = false; $('admin-status').hidden = true; });
 $('slot-form').addEventListener('submit', event => { event.preventDefault(); action(async () => { if (!/(Z|[+-]\d\d:\d\d)$/.test($('slot-start').value)) throw new Error('Include the time-zone offset.'); await api('slots', 'POST', { startsAt: Date.parse($('slot-start').value), meetingUrl: $('slot-meeting').value }); message('Appointment published.'); await reload(); }); });
 $('github-setup').addEventListener('submit', event => {
   event.preventDefault();
@@ -211,3 +211,18 @@ $('github-setup').addEventListener('submit', event => {
     } finally { submit.disabled = false; }
   });
 });
+
+$('load-campaigns').addEventListener('click',()=>action(async()=>{
+  const activeSession=session,result=await api('campaigns');
+  if(!key||activeSession!==session)return;
+  const target=$('campaign-results');target.replaceChildren();
+  for(const row of result.campaigns){
+    const card=el('article',null,'admin-card');
+    card.append(el('h3',row.source==='linkedin'?`LinkedIn · ${row.content||'unlabeled ad'}`:'No recognized launch ad'));
+    card.append(el('p',`Theme shown: ${row.theme}`));
+    card.append(el('p',`${row.registrations} registrations · ${row.submissions} submissions · ${row.approvals} approvals · ${row.deposits} deposits · ${row.bookings} bookings`));
+    card.append(el('p',`Gross payments: ${new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(row.gross_cents/100)}`));
+    target.append(card);
+  }
+  if(!result.campaigns.length)target.append(el('p','No registrations yet.'));
+}));
