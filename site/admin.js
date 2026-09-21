@@ -191,7 +191,7 @@ async function reload() {
     $('published-slots').append(item);
   }
 }
-$('login').addEventListener('submit', event => { event.preventDefault(); session++; key = $('admin-key').value; $('admin-key').value = ''; action(reload); });
+$('login').addEventListener('submit', event => { event.preventDefault(); session++; key = $('admin-key').value; $('admin-key').value = ''; $('admin-status').hidden = true; action(reload); });
 $('reload').addEventListener('click', () => action(reload));
 $('cleanup').addEventListener('click', () => action(async () => { const result = await api('cleanup', 'POST', {}); message(`Expired ${result.expired} unpaid requests. Review outstanding external access below.`); await reload(); }));
 $('run-email').addEventListener('click',()=>action(async()=>{const result=await api('email','POST',{});message(result.configured?`${result.accepted} messages accepted by the sender. Acceptance is separate from delivery.`:'Email sending is not configured. No messages were sent.');}));
