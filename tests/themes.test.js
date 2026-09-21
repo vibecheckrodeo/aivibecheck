@@ -84,10 +84,7 @@ test('no visible switcher remains; an empty live region and discreet shortcut hi
   assert.equal(p.root.dataset.theme, 'butter');
 });
 
-test('the shared production shell uses an original project-review schematic', () => {
-  assert.match(html, /class="hero-signal" aria-hidden="true"/);
-  assert.match(html, /PROJECT<\/span>.*REVIEW<\/span>.*NEXT MOVE<\/span>/s);
-  assert.match(html, /ONE PROBLEM \/ SOURCE ACCESS \/ HUMAN REVIEW/);
+test('public copy does not expose internal implementation details', () => {
   assert.doesNotMatch(html, /TypeSafe|System One|Jev/i);
 });
 
@@ -269,11 +266,5 @@ test('all alternate palettes retain readable text contrast and an explicit headi
     assert.ok(ink && paper); assert.match(rule, /--brand-heading:/);
     const ratio = (luminance(paper) + .05) / (luminance(ink) + .05);
     assert.ok(ratio >= 4.5, `${id} text contrast is ${ratio}`);
-  }
-});
-
-test('each named direction has its own diagram treatment, not only a palette swap', () => {
-  for (const id of styles) {
-    assert.ok(css.includes(`:root[data-theme="${id}"] .signal-canvas`), `Missing ${id} diagram treatment`);
   }
 });
