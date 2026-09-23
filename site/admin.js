@@ -20,11 +20,11 @@ function button(label, fn, refresh = true) {
 }
 function externalLink(href, label) {
   let url; try { url = new URL(href); } catch { return el('span', label || 'Invalid link'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return el('span', label || 'Invalid link');
+  if (url.protocol !== 'https:' || url.username || url.password) return el('span', label || 'Invalid link');
   const link = el('a', label || href); link.href = url.href; link.target = '_blank'; link.rel = 'noreferrer'; return link;
 }
 function appendReply(card, row) {
-  if (['expired','declined'].includes(row.status)) return;
+  if (['expired','declined'].includes(row.status) || row.finished_at || (row.booking && row.booking.ends_at <= Date.now())) return;
   const section=el('section'), heading=el('h3','Your reply and time estimate');
   const replyLabel=el('label','Reply to the customer'), reply=el('textarea');
   reply.id=`reply-${row.id}`; replyLabel.htmlFor=reply.id; reply.rows=4; reply.maxLength=4000; reply.value=row.reply || '';
@@ -149,10 +149,10 @@ async function reload() {
   showIntegrations(integrations); $('requests').replaceChildren();
   for (const row of data.requests) {
     const card = el('article', null, 'admin-card');
-    card.append(el('h2', row.name), el('p', `${row.email} · ${row.status}`), el('p', `Registered ${date(row.created_at)} · Deadline ${date(row.expires_at)}`), el('p', row.description || 'Project details not completed yet.', 'preserve'));
+    card.append(el('h2', row.purged_at ? 'Request content cleared' : row.name), el('p', row.purged_at ? `${row.status} · Content removed ${date(row.purged_at)}` : `${row.email} · ${row.status}`), el('p', `Registered ${date(row.created_at)} · Deadline ${date(row.expires_at)}`), el('p', row.description || (row.purged_at ? 'Stored project content has been deleted.' : 'Project details not completed yet.'), 'preserve'));
     for (const href of row.links) { const paragraph = el('p'); paragraph.append(externalLink(href)); card.append(paragraph); }
     if (row.access_notes) card.append(el('p', row.access_notes, 'preserve'));
-    if (row.status === 'submitted') {
+    if (row.status === 'submitted' && !row.finished_at) {
       const label = el('label', 'Agreed review focus'), scope = el('textarea');
       scope.rows = 3; scope.id = `scope-${row.id}`; label.htmlFor = scope.id;
       card.append(label, scope, button('Approve request', () => api(`requests/${row.id}`, 'POST', { action: 'approve', scope: scope.value })), button('Decline request', () => api(`requests/${row.id}`, 'POST', { action: 'decline' })));
@@ -160,10 +160,23 @@ async function reload() {
     if (row.scope) card.append(el('p', `Review focus: ${row.scope}`));
     if (row.status === 'approved') card.append(el('p', 'Approval is visible on the customer’s private request page. Check email status to see whether the notification has been delivered.'));
     appendReply(card,row);
+    if (row.finished_at) card.append(el('p', `${['expired','declined'].includes(row.status) ? 'Request closed' : 'Review finished'} ${date(row.finished_at)}. Project details and messages have a scheduled cleanup cutoff of ${date(row.purge_after)}.`, 'help'));
+    else if (row.status === 'paid' && (row.review_mode === 'answer' || row.review_mode == null) && !row.booking && !row.purged_at) {
+        const answerLabel=el('label','Paid answer to post on the customer’s private page'), answer=el('textarea');
+        answer.id=`answer-${row.id}`; answerLabel.htmlFor=answer.id; answer.rows=6; answer.maxLength=10000;
+        const confirmLabel=el('label',null,'check'), confirmed=el('input'); confirmed.type='checkbox';
+        confirmLabel.append(confirmed,el('span','This is the final paid answer. Post it now and start the seven-day cleanup period.'));
+        const complete=button('Post answer and complete review',()=>api(`requests/${row.id}`,'POST',{action:'finish',confirmDelivered:confirmed.checked,answerText:answer.value}));
+        const update=()=>{complete.disabled=!confirmed.checked||!answer.value.trim();}; update();
+        confirmed.addEventListener('change',update); answer.addEventListener('input',update);
+        card.append(answerLabel,answer,confirmLabel,complete);
+    }
+    else if (row.status === 'booked' && row.booking && row.booking.ends_at <= Date.now()) card.append(button('Finish completed call and start cleanup', () => api(`requests/${row.id}`, 'POST', {action:'finish'})));
     if (row.booking) card.append(el('p', `Booked: ${date(row.booking.starts_at)} · ${(row.booking.ends_at-row.booking.starts_at)/60000} minutes`));
-    if(row.pending_upgrade)card.append(el('p',`Upgrade awaiting confirmation: ${row.pending_upgrade.minutes} minutes · ${row.pending_upgrade.status} · checkout deadline ${date(row.pending_upgrade.expires_at)}. The time stays held until Stripe confirms payment or expiry. Use “Run due access cleanup” to reconcile it.`));
+    if (row.pending_deposit) card.append(el('p', row.pending_deposit.payment_received ? 'Stripe received this deposit, but no appointment is booked. Reconcile the payment and calendar, then arrange another time or refund. Do not ask the customer to pay again.' : `Deposit checkout pending · ${row.pending_deposit.mode}${row.pending_deposit.starts_at ? ` · selected time ${date(row.pending_deposit.starts_at)}` : ''}. Confirm Stripe status before releasing a held time.`, 'help'));
+    if(row.pending_upgrade)card.append(el('p',`Upgrade awaiting confirmation: ${row.pending_upgrade.minutes} minutes · ${row.pending_upgrade.status} · checkout deadline ${date(row.pending_upgrade.expires_at)}. The time stays held until Stripe confirms payment or expiry. Use “Run access and data cleanup” to reconcile it.`));
     appendConnections(card, row, connected.connections);
-    if (!['expired', 'declined'].includes(row.status)) {
+    if (!row.finished_at && !['expired', 'declined'].includes(row.status)) {
       const details = el('details'), summary = el('summary', 'Record a separate account invitation'); details.append(summary);
       const provider = el('input'), resource = el('input');
       provider.placeholder = 'Platform (github, figma, replit, …)'; resource.placeholder = 'Repository owner/name or access-removal reference'; provider.setAttribute('aria-label', 'Platform'); resource.setAttribute('aria-label', 'Access-removal reference');
@@ -186,16 +199,16 @@ async function reload() {
   if (!data.grants.some(grant => grant.state === 'cleanup_due') && !pending.length) $('grants').append(el('p', 'No external-access removals are due.'));
   $('published-slots').replaceChildren();
   for (const slot of data.slots) {
-    const item = el('div', null, 'admin-card'); item.append(el('p', `${date(slot.starts_at)} · ${slot.request_id || slot.claim_state==='booked' ? 'Booked' : slot.claim_state==='held' ? 'Held during checkout' : 'Available'}`));
+    const item = el('div', null, 'admin-card'); item.append(el('p', `${date(slot.starts_at)} · ${slot.request_id || slot.claim_state==='booked' ? 'Booked' : slot.claim_state==='held' ? 'Held during checkout' : slot.room_reserved ? 'Room reserved for an existing customer' : 'Available'}`));
     if (!slot.request_id&&!slot.claim_state) item.append(button('Remove this availability', () => api(`slots/${slot.id}`, 'DELETE')));
     $('published-slots').append(item);
   }
 }
-$('login').addEventListener('submit', event => { event.preventDefault(); session++; key = $('admin-key').value; $('admin-key').value = ''; action(reload); });
+$('login').addEventListener('submit', event => { event.preventDefault(); session++; key = $('admin-key').value; $('admin-key').value = ''; $('admin-status').hidden = true; action(reload); });
 $('reload').addEventListener('click', () => action(reload));
-$('cleanup').addEventListener('click', () => action(async () => { const result = await api('cleanup', 'POST', {}); message(`Expired ${result.expired} unpaid requests. Review outstanding external access below.`); await reload(); }));
+$('cleanup').addEventListener('click', () => action(async () => { const result = await api('cleanup', 'POST', {}); message(`Expired ${result.expired} unpaid requests; cleared private content from ${result.retention.purged} requests. ${result.retention.waitingForAccess} need external access removal; ${result.retention.waitingForPayments} need payment reconciliation.`); await reload(); }));
 $('run-email').addEventListener('click',()=>action(async()=>{const result=await api('email','POST',{});message(result.configured?`${result.accepted} messages accepted by the sender. Acceptance is separate from delivery.`:'Email sending is not configured. No messages were sent.');}));
-$('logout').addEventListener('click', () => { session++; key = ''; for (const id of ['requests', 'grants', 'published-slots', 'github-app-link']) $(id).replaceChildren(); $('dashboard').hidden = true; $('login').hidden = false; $('admin-status').hidden = true; });
+$('logout').addEventListener('click', () => { session++; key = ''; for (const id of ['requests', 'grants', 'published-slots', 'github-app-link', 'campaign-results']) $(id).replaceChildren(); $('dashboard').hidden = true; $('login').hidden = false; $('admin-status').hidden = true; });
 $('slot-form').addEventListener('submit', event => { event.preventDefault(); action(async () => { if (!/(Z|[+-]\d\d:\d\d)$/.test($('slot-start').value)) throw new Error('Include the time-zone offset.'); await api('slots', 'POST', { startsAt: Date.parse($('slot-start').value), meetingUrl: $('slot-meeting').value }); message('Appointment published.'); await reload(); }); });
 $('github-setup').addEventListener('submit', event => {
   event.preventDefault();
@@ -211,3 +224,18 @@ $('github-setup').addEventListener('submit', event => {
     } finally { submit.disabled = false; }
   });
 });
+
+$('load-campaigns').addEventListener('click',()=>action(async()=>{
+  const activeSession=session,result=await api('campaigns');
+  if(!key||activeSession!==session)return;
+  const target=$('campaign-results');target.replaceChildren();
+  for(const row of result.campaigns){
+    const card=el('article',null,'admin-card');
+    card.append(el('h3',row.source==='linkedin'?`LinkedIn · ${row.content||'unlabeled ad'}`:'No recognized launch ad'));
+    card.append(el('p',`Theme shown: ${row.theme}`));
+    card.append(el('p',`${row.registrations} registrations · ${row.submissions} submissions · ${row.approvals} approvals · ${row.deposits} deposits · ${row.bookings} bookings`));
+    card.append(el('p',`Gross payments: ${new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(row.gross_cents/100)}`));
+    target.append(card);
+  }
+  if(!result.campaigns.length)target.append(el('p','No registrations yet.'));
+}));

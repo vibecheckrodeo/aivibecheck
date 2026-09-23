@@ -1,9 +1,8 @@
-/* Four Vibe Check identities, rebuilt around a shared machine-manual grammar:
-   giant type, hard rules, utility labels, diagrams and visible structure.
-   The palettes and artwork remain Vibe Check's own. */
+/* Four Vibe Check identities with a shared accessible foundation.
+   Each theme earns its own composition; color is not doing all the work. */
 :root { --brand-heading: Arial, "Helvetica Neue", sans-serif; }
 :root[data-theme="butter"] { --paper: #fff2c9; --ink: #084e50; --peach: #f68d70; --brand-heading: Arial, "Helvetica Neue", sans-serif; --surface: #fffaf0; --accent: #f68d70; --line: #084e50; --soft-line: rgba(8, 78, 80, .28); --page-grid: rgba(8, 78, 80, .075); --panel-shadow: 8px 8px 0 #084e50; }
-:root[data-theme="geometric"] { --paper: #e8ebe8; --ink: #151515; --peach: #ff5a36; --brand-heading: "Arial Narrow", "Helvetica Neue", Arial, sans-serif; --surface: #f8f8f3; --accent: #ff5a36; --line: #151515; --soft-line: rgba(21, 21, 21, .28); --page-grid: rgba(21, 21, 21, .1); --panel-shadow: none; }
+:root[data-theme="geometric"] { --paper: #e8ebe8; --ink: #151515; --peach: #ff5a36; --brand-heading: "Avenir Next", Avenir, system-ui, sans-serif; --body-font: "Avenir Next", Avenir, system-ui, sans-serif; --surface: #f8f8f3; --accent: #ff5a36; --line: #151515; --soft-line: rgba(21, 21, 21, .28); --page-grid: rgba(21, 21, 21, .1); --panel-shadow: none; }
 :root[data-theme="ribbon"] { --paper: #fff7d9; --ink: #093ee4; --peach: #ffbe1b; --brand-heading: "Trebuchet MS", Arial, sans-serif; --surface: #ffffff; --accent: #ffbe1b; --line: #093ee4; --soft-line: rgba(9, 62, 228, .25); --page-grid: rgba(9, 62, 228, .08); --panel-shadow: 9px 9px 0 #ffbe1b; }
 :root[data-theme="expressive-serif"] { --paper: #ffe1dc; --ink: #600d1e; --peach: #ff6258; --brand-heading: Georgia, "Times New Roman", serif; --surface: #fff8f4; --accent: #ff6258; --line: #600d1e; --soft-line: rgba(96, 13, 30, .25); --page-grid: rgba(96, 13, 30, .07); --panel-shadow: 8px 8px 0 #ff6258; }
 
@@ -12,74 +11,73 @@
 .brand-home svg { display: block; position: absolute; inset: 0; opacity: 0; pointer-events: none; }
 :root[data-theme]:not([data-theme="butter"]) .brand-home img { opacity: 0; }
 :root[data-theme]:not([data-theme="butter"]) .brand-home svg { opacity: 1; }
+:root[data-theme="expressive-serif"] .brand-home svg { mix-blend-mode: multiply; }
 .theme-hint { margin: 0 auto; padding-block: 14px 22px; text-align: right; font: 10px/1.5 var(--utility-font); text-transform: uppercase; }
 .theme-hint kbd { padding: 2px 4px; border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 800; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; border: 0; clip-path: inset(50%); white-space: nowrap; }
 
-/* Butter: warm workshop notes, heavy teal frames and slightly unruly parts. */
+/* Butter: an open workbench note—warm, direct and lightly marked up. */
 :root:not([data-theme]), :root[data-theme="butter"] { --panel-radius: 0; }
+:root:not([data-theme]) body, :root[data-theme="butter"] body { background-image: none; }
 
-:root:not([data-theme]) .process li:nth-child(2), :root[data-theme="butter"] .process li:nth-child(2) { transform: translateY(14px); }
-:root:not([data-theme]) .process li:nth-child(3), :root[data-theme="butter"] .process li:nth-child(3) { transform: translateY(28px); }
+:root:not([data-theme]) .process li::before, :root[data-theme="butter"] .process li::before { color: var(--accent); }
+:root:not([data-theme]) .portrait-track, :root[data-theme="butter"] .portrait-track { animation-duration: 26s; }
 :root:not([data-theme]) .agent-response, :root[data-theme="butter"] .agent-response { background: var(--ink); color: var(--paper); }
 :root:not([data-theme]) .agent-response figcaption, :root[data-theme="butter"] .agent-response figcaption { border-color: var(--paper); }
 
-/* Geometric: a strict specimen sheet—monochrome grid, compressed caps, red index marks. */
-:root[data-theme="geometric"] body { background-size: 48px 48px; }
-:root[data-theme="geometric"] h1 { max-width: 9ch; font-size: clamp(68px, 10.5vw, 148px); line-height: .76; letter-spacing: -.085em; text-transform: uppercase; }
-:root[data-theme="geometric"] h2 { letter-spacing: -.065em; text-transform: uppercase; }
-:root[data-theme="geometric"] .masthead { box-shadow: none; }
+/* Geometric: a quiet evidence sheet with one red registration mark. */
+:root[data-theme="geometric"] body { background-image: none; }
+:root[data-theme="geometric"] h1 { max-width: 10ch; font-size: clamp(64px, 8.4vw, 116px); font-weight: 600; line-height: .91; letter-spacing: -.065em; }
+:root[data-theme="geometric"] h2 { font-weight: 600; letter-spacing: -.05em; }
+:root[data-theme="geometric"] .portrait-frame { box-shadow: 10px 10px 0 var(--accent); }
+:root[data-theme="geometric"] .portrait-track { animation-duration: 18s; animation-direction: reverse; }
+:root[data-theme="geometric"] .portrait-track::after { width: 16px; height: 16px; background: var(--accent); }
+:root[data-theme="geometric"] .masthead { border-top: 0; }
 :root[data-theme="geometric"] .masthead nav a:hover, :root[data-theme="geometric"] .masthead nav a:focus-visible { background: var(--accent); color: var(--ink); }
 
 :root[data-theme="geometric"] .intake-body { box-shadow: none; }
-:root[data-theme="geometric"] .button, :root[data-theme="geometric"] button { box-shadow: 5px 5px 0 var(--accent); }
-:root[data-theme="geometric"] .process ol { gap: 0; }
-:root[data-theme="geometric"] .process li + li { border-left: 0; }
-:root[data-theme="geometric"] .process h3 { text-transform: uppercase; }
-:root[data-theme="geometric"] .section::before { content: "+"; color: var(--accent); font-size: 34px; font-weight: 900; }
-:root[data-theme="geometric"] .agent-response { background: var(--ink); color: var(--paper); box-shadow: 10px 10px 0 var(--accent); }
+:root[data-theme="geometric"] .button, :root[data-theme="geometric"] button { box-shadow: none; }
+:root[data-theme="geometric"] .process li::before { color: var(--accent); font-family: var(--utility-font); font-size: clamp(24px, 3vw, 38px); }
+:root[data-theme="geometric"] .agent-response { border-left: 10px solid var(--accent); background: var(--ink); color: var(--paper); box-shadow: none; }
 
-/* Ribbon: blue editorial blocks connected by gold bands and slanted handoffs. */
-:root[data-theme="ribbon"] body {
-  background-image: radial-gradient(ellipse at 15% 8%, transparent 0 11%, var(--page-grid) 11.2% 12%, transparent 12.2%), radial-gradient(ellipse at 85% 58%, transparent 0 13%, var(--page-grid) 13.2% 14%, transparent 14.2%);
-  background-size: 720px 520px, 820px 620px;
-}
+/* Ribbon: a continuous handoff strip with gold reserved for decisions. */
+:root[data-theme="ribbon"] body { background-image: none; }
 :root[data-theme="ribbon"] h1 { max-width: 11ch; line-height: .83; }
-:root[data-theme="ribbon"] .intro-copy h1 { position: relative; z-index: 0; }
-:root[data-theme="ribbon"] .intro-copy h1::after { content: ""; position: absolute; z-index: -1; right: 0; bottom: .05em; left: 0; height: .22em; background: var(--accent); transform: rotate(-2deg); transform-origin: center; }
+:root[data-theme="ribbon"] .portrait-frame { box-shadow: 12px 12px 0 var(--accent); }
+:root[data-theme="ribbon"] .portrait-track { border-width: 2px; animation-duration: 30s; }
 
-:root[data-theme="ribbon"] .process li { box-shadow: 7px 7px 0 var(--accent); }
-:root[data-theme="ribbon"] .process li:nth-child(2) { transform: translateY(14px); }
-:root[data-theme="ribbon"] .process li:nth-child(3) { transform: translateY(28px); }
-:root[data-theme="ribbon"] .after { background: var(--accent); }
-:root[data-theme="ribbon"] .section::before { content: "≈"; font-size: 30px; font-weight: 900; }
-:root[data-theme="ribbon"] .agent-response { background: var(--ink); color: var(--paper); box-shadow: 9px 9px 0 var(--accent); }
+:root[data-theme="ribbon"] .process ol { grid-template-columns: .78fr 1.28fr .94fr; gap: clamp(20px, 4vw, 58px); border-top: 0; }
+:root[data-theme="ribbon"] .process li { display: block; padding: 22px 0; border-top: 5px solid var(--ink); border-bottom: 0; }
+:root[data-theme="ribbon"] .process li::before { display: block; margin-bottom: 26px; color: var(--accent); }
+:root[data-theme="ribbon"] .after { border-left-color: var(--accent); }
+:root[data-theme="ribbon"] .button, :root[data-theme="ribbon"] button { box-shadow: 4px 4px 0 var(--accent); }
+:root[data-theme="ribbon"] .agent-response { background: var(--ink); color: var(--paper); box-shadow: none; }
 
-/* Expressive serif: an editorial broadside with wine rules, coral halftone and italic scale. */
-:root[data-theme="expressive-serif"] body {
-  background-image: radial-gradient(circle, var(--page-grid) 1.2px, transparent 1.3px);
-  background-size: 18px 18px;
-}
-:root[data-theme="expressive-serif"] h1 { max-width: 9ch; font-style: italic; font-weight: 700; line-height: .79; letter-spacing: -.075em; }
-:root[data-theme="expressive-serif"] h2 { font-style: italic; font-weight: 700; }
+/* Expressive serif: an edited case note—literary, not scrapbooked. */
+:root[data-theme="expressive-serif"] body { background-image: none; }
+:root[data-theme="expressive-serif"] h1 { max-width: 9ch; font-style: normal; font-weight: 700; line-height: .89; letter-spacing: -.065em; }
+:root[data-theme="expressive-serif"] h2 { font-style: normal; font-weight: 700; }
 :root[data-theme="expressive-serif"] .masthead nav a, :root[data-theme="expressive-serif"] .byline { letter-spacing: .07em; }
+:root[data-theme="expressive-serif"] .portrait-frame { box-shadow: -9px 11px 0 var(--accent); }
+:root[data-theme="expressive-serif"] .portrait-track { animation-duration: 34s; }
 
-:root[data-theme="expressive-serif"] .intake-body { outline: 1px solid var(--line); outline-offset: 5px; }
-:root[data-theme="expressive-serif"] .process li { border-width: 1px; box-shadow: 6px 6px 0 var(--ink); }
-:root[data-theme="expressive-serif"] .process h3 { font-family: Georgia, serif; font-size: clamp(23px, 2.2vw, 30px); font-style: italic; }
-:root[data-theme="expressive-serif"] .section::before { content: "✶"; color: var(--accent); font-size: 30px; }
-:root[data-theme="expressive-serif"] .agent-response { background: var(--surface); box-shadow: 9px 9px 0 var(--accent); }
+:root[data-theme="expressive-serif"] .process ol { grid-template-columns: 1.25fr .85fr; gap: 0 clamp(40px, 8vw, 110px); border-top: 0; }
+:root[data-theme="expressive-serif"] .process li { border-top: 1px solid var(--line); border-bottom: 0; }
+:root[data-theme="expressive-serif"] .process li:first-child { grid-column: 1 / -1; width: 76%; }
+:root[data-theme="expressive-serif"] .process h3 { font-family: Georgia, serif; font-size: clamp(23px, 2.2vw, 30px); font-style: normal; }
+:root[data-theme="expressive-serif"] .agent-response { background: var(--surface); box-shadow: none; }
 :root[data-theme="expressive-serif"] .agent-translation h3 { font: italic 700 22px/1.2 Georgia, serif; }
 
 @media (max-width: 900px) {
   .brand-home { width: 146px; height: 68px; }
-  :root[data-theme="geometric"] .process li + li { border-left: 2px solid var(--line); border-top: 0; }
-  :root:not([data-theme]) .process li:nth-child(2), :root:not([data-theme]) .process li:nth-child(3), :root[data-theme="butter"] .process li:nth-child(2), :root[data-theme="butter"] .process li:nth-child(3), :root[data-theme="ribbon"] .process li:nth-child(2), :root[data-theme="ribbon"] .process li:nth-child(3) { transform: none; }
+  :root[data-theme="ribbon"] .process ol, :root[data-theme="expressive-serif"] .process ol { grid-template-columns: 1fr; gap: 0; }
+  :root[data-theme="ribbon"] .process li { border-top-width: 2px; }
+  :root[data-theme="expressive-serif"] .process li:first-child { grid-column: auto; width: auto; }
 }
 
 @media (max-width: 640px) {
   .brand-home { width: 120px; height: 68px; }
-  :root[data-theme="geometric"] h1 { font-size: clamp(62px, 20.5vw, 94px); }
-  :root[data-theme="expressive-serif"] h1 { font-size: clamp(58px, 19vw, 88px); }
+  :root[data-theme="geometric"] h1 { font-size: clamp(50px, 15.5vw, 64px); }
+  :root[data-theme="expressive-serif"] h1 { font-size: clamp(50px, 15vw, 62px); }
 
 }

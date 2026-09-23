@@ -7,21 +7,31 @@ reviewer's decision, verifies a deposit, and offers available appointments.
 
 The public site is https://vibecheck.rodeo. This source snapshot is separate
 from private operating records, customer data, credentials, and deployment
-history. A customer registers with a name and email, saves a brief, shares
-the project, and submits the request. Ashley reviews it before asking for
-the $25 deposit, which buys an answer or a 15-minute conversation. Ashley
-replies with a time estimate. Prepaid sessions cost $45 for 30 minutes or $80
-for an hour, including the deposit. Extra time is reserved before Checkout
-and confirmed only after server-side payment verification. A private return
-link provides access to the request; keep it to return on another device.
+history. Mirrored private source release:
+0d9308dab843bb4160197fd175bc2f989a96719b. The live Pages version and
+health endpoints reported that same release on 23 September 2026. A public
+Git commit alone does not establish what is running. A customer registers
+with a name and email, saves a brief, shares the project, and submits the
+request. Ashley reviews it before asking for payment. After approval, the
+customer chooses a
+written answer or an available 15-minute call before the $25 deposit. A call
+time is held during Stripe Checkout and booked only after server-side payment
+verification; a written answer needs no appointment. Ashley replies with a
+time estimate before a call. Prepaid calls cost $45 for 30 minutes or $80 for
+an hour, including the deposit. Extra time is reserved before Checkout and
+confirmed only after server-side payment verification. A private return link
+provides access to the request; keep it to return on another device.
 
-Integration status at export, 20 September 2026: Stripe payments and email
-sending are implemented but not activated with production credentials;
-the GitHub App is not configured, and Figma public authorization requires
+On 23 September 2026, the live /api/health endpoint reported registration and
+payments ready, transactional Resend email ready, optional marketing email
+unavailable, and two Google calendars configured for required availability
+checks. Those readiness flags do not prove a real charge, delivered email, or
+successful live FreeBusy request. GitHub App authorization still requires
+registration and a tested installation; Figma public authorization requires
 provider credentials and approval. Replit and Lovable use manual sharing or
 their GitHub export/sync features; this application has no native OAuth
-connector for either service. The presence of an adapter in the source is
-not evidence that a live connection has been configured or verified.
+connector for either service. Source code alone cannot prove a live provider
+connection is working.
 
 Source layout
 -------------
@@ -80,26 +90,46 @@ Pages API. Until configured and verified, payment remains unavailable.
 Checkout confirmation is verified on the server; the browser returning from
 a checkout page is not proof of payment. Use separate Stripe test resources
 for development. Do not charge a real card as part of automated tests.
+Payments are non-refundable when the review can be delivered. If Stripe has
+charged for a call but a conflict or outage prevents booking, the payment
+stays pending for Ashley to arrange another time or refund. The customer
+should not pay again while that is resolved.
 
-The administrator creates actual 15-minute appointment slots and supplies
-their Zoom URLs. The application does not invent meeting links or claim
-email delivery. Appointments must fall Monday through Saturday, 1–6pm
-America/New_York, and booking shows availability within the next seven days.
+The administrator creates actual 15-minute appointment slots and supplies a
+verified Proton Meet room link for each customer. Open the room first and keep
+the complete link, including its #pwd- fragment, private. The application
+does not create rooms or claim email delivery. Appointments must fall Monday
+through Saturday, 1–6pm America/New_York, and booking shows availability
+within the next seven days. After Ashley approves a request, the customer
+chooses a written answer or a call before deposit Checkout. Calls require an
+available slot and a working check of Ashley's Google calendar busy times;
+if that check is unavailable, call checkout pauses while answer checkout can
+continue. The application checks conflicts; it does not create Google events.
 
-Longer sessions need adjacent 15-minute blocks with the same Zoom URL. The
-application holds those blocks during Stripe Checkout and reconciles the
+Longer sessions need adjacent 15-minute blocks with the same Proton Meet link.
+A booked room or pending payment hold cannot be offered to another customer.
+The application holds those blocks during Stripe Checkout and reconciles the
 provider result before releasing an uncertain payment. A previously booked
 review can extend only from its original start. Upgrade Checkout closes
 35 minutes before the appointment. Prices and deposit credit are calculated
-on the server; the browser cannot choose the charge amount.
+on the server; the browser cannot choose the charge amount. Free Proton Meet
+calls stop at 60 minutes and the free plan allows five new links per day;
+reconnect if needed to deliver a booked hour. Keep a separate opened room
+for each customer, including during pending holds. A paid booking keeps that
+room assigned to the customer rather than making unused blocks available to
+someone else.
 
 Email and optional follow-ups
 -----------------------------
-Configure RESEND_API_KEY and EMAIL_FROM on both the Pages API and cleanup
-Worker. EMAIL_REPLY_TO and PUBLIC_ORIGIN may be set explicitly. The existing
+Configure RESEND_API_KEY, RESEND_WEBHOOK_SECRET, and EMAIL_FROM on both the
+Pages API and cleanup Worker. EMAIL_REPLY_TO and PUBLIC_ORIGIN may be set
+explicitly. Configure a Resend webhook for delivered, failed, suppressed,
+bounced, and complained events at /api/resend-webhook. The receiving endpoint
+verifies the signed raw body before changing delivery state. The existing
 INTEGRATION_ENCRYPTION_KEY encrypts confirmation tokens and retry payloads.
 Email sending stays unavailable without its configuration. A confirmed
-address is required before sending private project or payment updates.
+address is required before sending private project or payment updates;
+provider acceptance alone is not proof of delivery.
 
 Optional upgrade emails additionally require EMAIL_POSTAL_ADDRESS, customer
 opt-in, an Ashley-authored estimate and campaign approval, verified deposit,
@@ -113,14 +143,25 @@ operator review after the provider idempotency window.
 
 Intake and access
 -----------------
-A brief may contain up to 1,000 words. Saving an unfinished request does not
-start the access deadline. Confirming that all materials are shared starts
-the seven-day unpaid-access clock. Edits and approval do not reset it.
+A brief may contain up to 1,000 words. An unfinished draft reaches its cleanup
+cutoff seven days after registration. Confirming that all materials are shared
+starts the separate seven-day unpaid-access clock. Edits and approval do not
+reset it. Declined requests reach their cleanup cutoff six days after the
+decline; paid written-answer reviews reach theirs six days after Ashley posts
+the final answer, and booked calls six days after the appointment ends.
 
-The cleanup Worker has a scheduled application task. This is access-expiry
-behavior, not a deployment job. Before expiring an unpaid request, it
-reconciles a recorded Stripe checkout. Missing or uncertain provider results
-must not be treated as verified payment or verified removal of access.
+The cleanup Worker runs about every 15 minutes after a cutoff. This is
+access-expiry and review-retention behavior, not a deployment job. It clears
+active-site contact and project details, replies, paid answers, queued
+messages, and access through the private return link. Before clearing an
+unpaid request, it reconciles a recorded Stripe checkout. Missing or
+uncertain provider results, provider failures, backlogs, and outages can delay
+cleanup; none prove payment or removal of access. Minimal payment references,
+amounts, states, audit events, categorical campaign labels, one-way email
+suppression hashes, and unfinished access-removal references may remain.
+Cloudflare recovery history and sent email or other provider records follow
+separate retention schedules; this is not a promise that every copy vanishes
+within a week.
 
 Removing a stored link does not revoke a separate account invitation. Record
 accepted invitations and verify removal in the relevant provider. Unverified
@@ -151,8 +192,8 @@ before accepting it. Configure and test a dedicated installation before
 offering this connection to customers. Expiry/disconnect removes the
 verified installation; failed removal stays queued for retry. A shared
 installation is not a substitute for separate project authorization.
-GitHub App registration and a live installation test are still pending for
-the service at the time of this export.
+Check the live service configuration and a dedicated installation test before
+describing this connection as available; this snapshot cannot prove either.
 
 The source also includes scheduled cleanup for abandoned installations that
 never become request connections. It verifies the app identity, reads and
@@ -235,4 +276,4 @@ License
 -------
 MIT. Copyright 2026 Ashley Raiteri. See LICENSE.
 
-Brand comparison: Ctrl+Shift+K cycles Butter, Geometric, Ribbon, and Expressive serif. Butter uses a solid-teal k. The displayed theme is the final query parameter, preserving the rest of the URL. Shared/ad URLs pin the theme; ordinary visits still rotate on refresh using browser history state. See site/brand/SOURCES.txt for IDs.
+Brand comparison: Ctrl+Shift+K cycles Butter, Geometric, Ribbon, and Expressive serif. Butter and Expressive serif use k marks matched to their wordmarks. The displayed theme is the final query parameter, preserving the rest of the URL. Shared/ad URLs pin the theme; ordinary visits still rotate on refresh using browser history state.

@@ -6,7 +6,19 @@ const fail=(status,message)=>{throw Object.assign(new Error(message),{status});}
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Referrer-Policy':'no-referrer',...headers}});
 const redirect=(url,headers={})=>new Response(null,{status:303,headers:{Location:url,'Cache-Control':'no-store','Referrer-Policy':'no-referrer',...headers}});
 const getRequest=(env,id)=>env.DB.prepare('SELECT * FROM requests WHERE id=?').bind(id).first();
-const active=row=>row&&!['expired','declined'].includes(row.status)&&(!row.expires_at||row.paid_at||row.expires_at>Date.now());
+const DAY=86400000;
+async function workEnded(env,row,now=Date.now()){
+  if(row.finished_at)return true;
+  if(!row.booked_slot_id)return false;
+  const slot=await env.DB.prepare('SELECT starts_at FROM slots WHERE id=? AND request_id=?').bind(row.booked_slot_id,row.id).first();
+  return !slot||slot.starts_at+(row.review_minutes||15)*60000<=now;
+}
+async function active(env,row,now=Date.now()){
+  if(!row||row.purged_at||['expired','declined'].includes(row.status))return false;
+  if(row.status==='draft'&&row.created_at+7*DAY<=now)return false;
+  if(await workEnded(env,row,now))return false;
+  return !row.expires_at||Boolean(row.paid_at)||row.expires_at>now;
+}
 const closed=row=>row&&['expired','declined'].includes(row.status);
 const cookie=(request,value)=>`vc_oauth=${value}; Path=/api/connect; HttpOnly; SameSite=Lax; Max-Age=900${new URL(request.url).protocol==='https:'?'; Secure':''}`;
 const browserCookie=request=>request.headers.get('Cookie')?.split('; ').find(v=>v.startsWith('vc_oauth='))?.slice(9)||'';
@@ -45,7 +57,8 @@ async function storeConnection(env,row,provider,externalId,resource,credentials)
   const id=crypto.randomUUID();
   const encrypted=credentials?await encrypt(env,credentials,'connection:'+id):'';
   try{
-    const result=await env.DB.prepare("INSERT INTO connections(id,request_id,provider,external_id,resource,encrypted_credentials,created_at) SELECT ?,id,?,?,?,?,? FROM requests WHERE id=? AND status NOT IN ('expired','declined') AND (expires_at IS NULL OR paid_at IS NOT NULL OR expires_at>?) AND (?!='github' OR NOT EXISTS (SELECT 1 FROM github_installation_cleanup WHERE installation_id=?))").bind(id,provider,String(externalId),JSON.stringify(resource),encrypted,Date.now(),row.id,Date.now(),provider,String(externalId)).run();
+    const now=Date.now();
+    const result=await env.DB.prepare("INSERT INTO connections(id,request_id,provider,external_id,resource,encrypted_credentials,created_at) SELECT ?,id,?,?,?,?,? FROM requests WHERE id=? AND finished_at IS NULL AND purged_at IS NULL AND status NOT IN ('expired','declined') AND (expires_at IS NULL OR paid_at IS NOT NULL OR expires_at>?) AND (status!='draft' OR created_at>?) AND (booked_slot_id IS NULL OR EXISTS(SELECT 1 FROM slots WHERE id=booked_slot_id AND request_id=requests.id AND starts_at+requests.review_minutes*60000>?)) AND (?!='github' OR NOT EXISTS (SELECT 1 FROM github_installation_cleanup WHERE installation_id=?))").bind(id,provider,String(externalId),JSON.stringify(resource),encrypted,now,row.id,now,now-7*DAY,now,provider,String(externalId)).run();
     if(!result.meta.changes)fail(409,'The request or installation closed during authorization. No connection was retained. Start a new connection if your request is still open.');
   }
   catch(error){if(/UNIQUE constraint/.test(String(error.message)))fail(409,'This account is already connected to a request. Disconnect it there before connecting another request.');throw error;}
@@ -80,8 +93,15 @@ export async function removeRequestConnections(env,requestId){
   const rows=(await env.DB.prepare("SELECT * FROM connections WHERE request_id=? AND state!='removed'").bind(requestId).all()).results;
   for(const row of rows)await removeConnection(env,row);
 }
-export async function retryConnectionCleanup(env){
-  const rows=(await env.DB.prepare("SELECT * FROM connections WHERE state='cleanup_due' LIMIT 100").all()).results;
+export async function retryConnectionCleanup(env,now=Date.now()){
+  const total=(await env.DB.prepare("SELECT count(*) AS n FROM connections WHERE state='cleanup_due'").first()).n;
+  const limit=Math.min(100,total),offset=total?(Math.floor(now/900000)*100)%total:0;
+  const rows=limit?(await env.DB.prepare("SELECT * FROM connections WHERE state='cleanup_due' ORDER BY created_at,id LIMIT ? OFFSET ?").bind(limit,offset).all()).results:[];
+  if(rows.length<limit){
+    const wrap=(await env.DB.prepare("SELECT * FROM connections WHERE state='cleanup_due' ORDER BY created_at,id LIMIT ?").bind(limit-rows.length).all()).results;
+    const seen=new Set(rows.map(row=>row.id));
+    rows.push(...wrap.filter(row=>!seen.has(row.id)));
+  }
   for(const row of rows)await removeConnection(env,row);
   await env.DB.prepare('DELETE FROM oauth_states WHERE expires_at<?').bind(Date.now()).run();
 }
@@ -133,7 +153,7 @@ export async function handleConnections(request,env,path,method,helpers){
   }
   if(path[0]==='requests'&&path[1]&&['connections','connect','disconnect'].includes(path[2])){
     let row=await helpers.authenticate(request,env,path[1]);
-    if(!active(row)&&!closed(row)){await helpers.expireUnpaid(env);row=await getRequest(env,row.id);}
+    if(!await active(env,row)&&!closed(row)){await helpers.expireUnpaid(env);row=await getRequest(env,row.id);}
     if(closed(row))await removeRequestConnections(env,row.id);
     if(method==='GET'&&path[2]==='connections')return json({configuration:await connectionConfiguration(env),connections:await safeConnections(env,row.id)});
     if(method==='POST'&&path[2]==='disconnect'){
@@ -141,7 +161,7 @@ export async function handleConnections(request,env,path,method,helpers){
       if(!connection)fail(404,'Connection not found.');await removeConnection(env,connection);return json({connections:await safeConnections(env,row.id)});
     }
     if(method==='POST'&&path[2]==='connect'&&['github','figma'].includes(path[3])){
-      if(!active(row))fail(409,'This request is closed.');
+      if(!await active(env,row))fail(409,'This request is closed.');
       const provider=path[3],data=await helpers.body(request),resource=resourceFor(provider,data.url);
       if(await env.DB.prepare("SELECT id FROM connections WHERE request_id=? AND provider=? AND state!='removed'").bind(row.id,provider).first())fail(409,'Disconnect the existing connection before connecting another.');
       const verifier=randomSecret();
@@ -157,7 +177,7 @@ export async function handleConnections(request,env,path,method,helpers){
   }
   if(path[0]==='connect'&&path[1]==='github'&&path[2]==='installed'&&method==='GET'){
     const flow=await consumeState(env,request,'github_install'),row=await getRequest(env,flow.request_id);
-    if(!active(row))fail(409,'This request is closed.');
+    if(!await active(env,row))fail(409,'This request is closed.');
     const installationId=url.searchParams.get('installation_id');
     if(!/^\d+$/.test(installationId||''))fail(400,'GitHub did not return an installation. Start again from your request.');
     const next=await issueState(env,request,'github',row.id,{...flow.payload,installationId});
@@ -165,7 +185,7 @@ export async function handleConnections(request,env,path,method,helpers){
   }
   if(path[0]==='connect'&&['github','figma'].includes(path[1])&&path[2]==='callback'&&method==='GET'){
     const provider=path[1],flow=await consumeState(env,request,provider),row=await getRequest(env,flow.request_id);
-    if(!active(row))fail(409,'This request is closed.');
+    if(!await active(env,row))fail(409,'This request is closed.');
     const code=url.searchParams.get('code');if(!code)fail(400,'Authorization was not completed. Return to your request to try again.');
     if(provider==='github'){
       const config=await githubConfig(env),token=await github.exchangeCode(env,config,{origin,code,verifier:flow.payload.verifier});
@@ -197,12 +217,12 @@ export async function handleConnections(request,env,path,method,helpers){
     if(method==='POST'&&path[3]==='remove'){await removeConnection(env,connection);return json({removed:(await env.DB.prepare('SELECT state FROM connections WHERE id=?').bind(connection.id).first()).state==='removed'});}
     if(method==='GET'&&path[3]==='read'){
       let row=await getRequest(env,connection.request_id);
-      if(!active(row)&&!closed(row)){await helpers.expireUnpaid(env);row=await getRequest(env,row.id);}
-      if(!active(row)||connection.state!=='active'){if(closed(row))await removeRequestConnections(env,row.id);fail(403,'Access to this project has ended.');}
+      if(!await active(env,row)&&!closed(row)){await helpers.expireUnpaid(env);row=await getRequest(env,row.id);}
+      if(!await active(env,row)||connection.state!=='active'){if(closed(row))await removeRequestConnections(env,row.id);fail(403,'Access to this project has ended.');}
       const resource=JSON.parse(connection.resource);
       const result=connection.provider==='github'?await github.readRepository(env,await githubConfig(env),connection.external_id,resource.repository,url.searchParams.get('path')||''):await figma.readFile(env,(await figmaCredentials(env,connection)).access_token,resource.fileKey);
       const latest=await env.DB.prepare('SELECT state FROM connections WHERE id=?').bind(connection.id).first();
-      if(!active(await getRequest(env,row.id))||latest?.state!=='active')fail(403,'Access to this project has ended.');
+      if(!await active(env,await getRequest(env,row.id))||latest?.state!=='active')fail(403,'Access to this project has ended.');
       return json(result);
     }
   }

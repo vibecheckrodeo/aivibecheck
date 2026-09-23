@@ -16,9 +16,17 @@ export async function cleanupGitHubOrphans(env, config, { now = Date.now(), limi
   const eligible = inventory.filter(item => item.createdAt < cutoff);
   // A pending claim is durable proof of a previously verified old installation.
   // Retry it even if GitHub's current inventory no longer includes that ID.
-  const pending = await env.DB.prepare("SELECT installation_id,requested_at FROM github_installation_cleanup WHERE removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM connections WHERE provider='github' AND external_id=installation_id AND state!='removed') ORDER BY requested_at, installation_id LIMIT 100").all();
+  const pendingWhere="removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM connections WHERE provider='github' AND external_id=installation_id AND state!='removed')";
+  const pendingTotal=(await env.DB.prepare(`SELECT count(*) AS n FROM github_installation_cleanup WHERE ${pendingWhere}`).first()).n;
+  const pendingLimit=Math.min(100,pendingTotal),pendingOffset=pendingTotal?(Math.floor(now/900000)*100)%pendingTotal:0;
+  const pending=pendingLimit?(await env.DB.prepare(`SELECT installation_id,requested_at FROM github_installation_cleanup WHERE ${pendingWhere} ORDER BY requested_at,installation_id LIMIT ? OFFSET ?`).bind(pendingLimit,pendingOffset).all()).results:[];
+  if(pending.length<pendingLimit){
+    const wrap=(await env.DB.prepare(`SELECT installation_id,requested_at FROM github_installation_cleanup WHERE ${pendingWhere} ORDER BY requested_at,installation_id LIMIT ?`).bind(pendingLimit-pending.length).all()).results;
+    const seen=new Set(pending.map(row=>row.installation_id));
+    pending.push(...wrap.filter(row=>!seen.has(row.installation_id)));
+  }
   const candidates = new Map(eligible.map(item => [String(item.installationId), item.createdAt]));
-  for (const row of pending.results) candidates.set(row.installation_id, row.requested_at);
+  for (const row of pending) candidates.set(row.installation_id, row.requested_at);
   const summary = { scanned: inventory.length, eligible: eligible.length, claimed: 0, removed: 0, failed: 0, skippedBound: 0, skippedRecent: inventory.length - eligible.length, skippedRemoved: 0, pending: 0, limited: false };
   const candidateIds = [...candidates.keys()], ready = [];
   // Keep the SQL parameter count below D1's limit and filter before budgeting.

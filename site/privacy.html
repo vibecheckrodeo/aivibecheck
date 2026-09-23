@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy · vibe check</title>
+  <meta name="description" content="How Ashley Raiteri handles project details, email, payments, meetings, and calendar availability for Vibe Check reviews.">
+  <link rel="canonical" href="https://vibecheck.rodeo/privacy">
+  <link rel="icon" href="/favicon-32.png">
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/privacy.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="wrap privacy-head"><a href="/" aria-label="Vibe check home"><img src="/brand/butter-solid-k.png" alt="vibe check" width="168" height="84"></a><a href="/">Back to the project page</a></header>
+  <main class="wrap privacy-main" id="main">
+    <p class="byline">Privacy at Vibe Check</p>
+    <h1>What I keep, and why.</h1>
+    <p class="lede">I’m Ashley. I use what you share to review your project, reply to you, and arrange a call if we decide to work together. Here’s what happens to that information.</p>
+    <p class="privacy-updated">Updated September 23, 2026</p>
+
+    <section aria-labelledby="request-data"><h2 id="request-data">Your request</h2>
+      <p>When you register, I save your name and email. If you continue, I also save the problem you describe, the links and access notes you share, my reply, and the status of your review. Your private request link gives access to that page, so keep it private.</p>
+      <p>I use these details to decide whether I can help and to do the review you asked for. I don’t sell them or use them for ad targeting.</p>
+    </section>
+
+    <section aria-labelledby="shared-access"><h2 id="shared-access">Project access</h2>
+      <p>Public or read-only links are usually enough. If you invite me into a separate service, removing the link from this site does not revoke that invitation. I track accepted invitations for removal in that service and keep unresolved removals on my operator list until they’re verified.</p>
+      <p>Figma’s <code>file_content:read</code> grant can cover more than the file you share. This app opens only the file you choose. You can revoke the connection in Figma’s settings.</p>
+      <p>Please don’t put passwords, API keys, or production secrets in your request.</p>
+    </section>
+
+    <section aria-labelledby="service-providers"><h2 id="service-providers">Email, payment, and meetings</h2>
+      <p>Cloudflare hosts the site and its database. Resend sends confirmation and service emails and reports delivery or failures. If you opt in, verify your email, and I recommend more time, I may send optional reminders; you can unsubscribe. Stripe handles checkout; this site keeps payment references and status, not card numbers. Proton Meet hosts calls, with a private room link shown after booking.</p>
+      <p>Those providers may keep their own operational records under their policies. Email already sent and Stripe payment records are outside this site’s deletion schedule.</p>
+    </section>
+
+    <section aria-labelledby="ashley-calendar"><h2 id="ashley-calendar">My availability</h2>
+      <p>You do not connect a calendar. When I connect my own Google calendars, Vibe Check requests only the start and end of busy periods through Google’s availability-only permission. It does not request event titles, descriptions, guests, or locations.</p>
+      <p>When configured, the site checks those times before publishing or offering appointments. It does not save the busy periods in customer records or show them to customers. My Google refresh credential stays in server-side Cloudflare secrets until I disconnect it. If the calendars are not connected or Google cannot be checked, calls pause.</p>
+    </section>
+
+    <section aria-labelledby="retention"><h2 id="retention">Deletion and questions</h2>
+      <p>An unfinished draft reaches its cleanup cutoff seven days after registration. For an unpaid submitted request, the seven-day deadline starts only when you confirm that all project materials are shared; editing does not restart it. A declined request reaches its cleanup cutoff within a week of the decline. A paid written answer or booked call reaches its cutoff within a week after the answer is posted or the appointment ends.</p>
+      <p>Cleanup usually runs about every 15 minutes after a cutoff. It clears contact details, project content, replies, the paid answer, queued messages, and access through the private request link from the active site. An uncertain payment, provider failure, backlog, or outage can delay removal. Connected access I control is removed or tracked for verified removal. Separate account invitations require action in the service where you granted them.</p>
+      <p>Payment references, amounts, audit events, campaign labels, email suppression hashes, and references needed to finish access removal may remain. Sent email and provider records follow separate policies. Cloudflare’s database recovery history can retain earlier data for its own recovery window.</p>
+      <p>For a privacy question or an access-removal request, email <a href="mailto:ashley@vibecheck.rodeo">ashley@vibecheck.rodeo</a>.</p>
+    </section>
+  </main>
+  <footer class="wrap"><span>vibe check · <a href="/">vibecheck.rodeo</a></span><span>Privacy · Ashley Raiteri</span></footer>
+</body>
+</html>

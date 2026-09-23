@@ -130,6 +130,17 @@ test('repeated provider failures rotate behind old installations rather than sta
   assert.equal(f.claim(7).requested_at, now + 3);
 });
 
+test('more than 100 pending orphan claims cannot hide a later removable installation', async t => {
+  const f = fixture(t, []);
+  const insert = f.sql.prepare('INSERT INTO github_installation_cleanup(installation_id,requested_at) VALUES(?,1)');
+  for (let id = 1; id <= 101; id++) insert.run(String(id));
+  f.remove = id => id === 101 ? new Response(null, { status: 204 }) : Response.json({}, { status: 503 });
+  const result = await f.run({ now: 900000, limit: 100 });
+  assert.equal(result.removed, 1);
+  assert.equal(f.claim(101).removed_at, 900000);
+  assert.equal(f.claim(100).removed_at, null);
+});
+
 test('malformed inventory fails before any deletion or claim and also blocks pending retries', async t => {
   const f = fixture(t, [item(7), { ...item(8), created_at: '2026-02-31T00:00:00Z' }]);
   f.sql.prepare('INSERT INTO github_installation_cleanup(installation_id,requested_at) VALUES(?,?)').run('9', now - day);

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync,readdirSync } from 'node:fs';
 import { handle, expireUnpaid, confirmPayment, validateProject, validSlot } from '../server/api.js';
+import {campaignAttribution} from '../server/campaigns.js';
 
 function setup() {
   const sql=new DatabaseSync(':memory:');for(const file of readdirSync('migrations').filter(name=>name.endsWith('.sql')).sort())sql.exec(readFileSync('migrations/'+file,'utf8'));
@@ -15,11 +16,73 @@ function setup() {
   const addSlot=(id='slot-1')=>{let start=Date.now()+86400000;start=Math.floor(start/900000)*900000;while(!validSlot(start,start+900000,Date.now()))start+=900000;sql.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,created_at) VALUES(?,?,?,?,?)').run(id,start,start+900000,'https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0001',Date.now());return id;};
   return {sql,env,call,register,submit,approve,addSlot};
 }
+test('campaign labels discard unknown values and retain no arbitrary customer text',()=>{
+ assert.deepEqual(campaignAttribution({theme:'ribbon',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'butter',request:'private-token',email:'private@example.com'}),{theme:'ribbon',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'butter'});
+ for(const input of [null,[],{source:'https://private.example',theme:'private@example.com',content:'private-token'},'private-token'])assert.deepEqual(campaignAttribution(input),{});
+});
+test('registration attribution stays fixed through editing and is hidden from customer responses',async()=>{
+ const t=setup(),labels={theme:'butter',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'ribbon'};
+ const registered=await t.call('register','POST',{name:'QA example',email:'qa@example.com',attribution:labels});
+ assert.equal(registered.status,201);const u=registered.data;assert.equal(u.request.attribution,undefined);
+ await t.call('requests/'+u.id,'PUT',{description:'My deployment needs help.',links:[],notes:'',complete:true,attribution:{theme:'geometric'}},u.token);
+ assert.deepEqual(JSON.parse(t.sql.prepare('SELECT attribution FROM requests WHERE id=?').get(u.id).attribution),labels);
+ assert.equal((await t.call('requests/'+u.id,'GET',null,u.token)).data.attribution,undefined);
+});
+test('campaign report requires admin and counts payments without multiplying registrations',async()=>{
+ const t=setup(),labels={theme:'butter',source:'linkedin',medium:'paid_social',campaign:'launch_theme_01',content:'butter'};
+ const u=(await t.call('register','POST',{name:'QA example',email:'qa@example.com',attribution:labels})).data;
+ await t.submit(u);await t.approve(u);const slot=t.addSlot('campaign-slot');
+ t.sql.prepare("UPDATE requests SET paid_at=?,booked_slot_id=?,status='booked',review_minutes=60 WHERE id=?").run(Date.now(),slot,u.id);
+ const insert=t.sql.prepare("INSERT INTO review_payments(id,request_id,minutes,from_minutes,amount_cents,total_cents,slot_id,status,checkout_expires_at,stripe_payload,created_at,paid_at) VALUES(?,?,?,?,?,?,?,'paid',?,'{}',?,?)");
+ insert.run('upgrade30',u.id,30,15,2000,4500,slot,Date.now(),Date.now(),Date.now());
+ insert.run('upgrade60',u.id,60,30,3500,8000,slot,Date.now(),Date.now(),Date.now());
+ await t.register();
+ assert.equal((await t.call('admin/campaigns')).status,401);
+ assert.equal((await t.call('admin/campaigns','GET',null,u.token)).status,401);
+ const result=(await t.call('admin/campaigns','GET',null,'test-admin')).data;
+ const ad=result.campaigns.find(row=>row.source==='linkedin');
+ assert.deepEqual(ad,{source:'linkedin',campaign:'launch_theme_01',content:'butter',theme:'butter',registrations:1,submissions:1,approvals:1,deposits:1,bookings:1,gross_cents:8000});
+ assert.equal(result.campaigns.find(row=>row.source==='unattributed').gross_cents,0);
+ assert.ok(!JSON.stringify(result).includes(u.id));assert.ok(!JSON.stringify(result).includes('qa@example.com'));
+});
 test('registration persists identity, protects requests, and does not imply payment',async()=>{const t=setup(),u=await t.register();assert.equal(u.request.status,'draft');assert.equal(u.request.paid_at,null);assert.equal(u.request.expires_at,null);assert.equal(u.request.token_hash,undefined);assert.equal((await t.call('requests/'+u.id)).status,401);assert.equal((await t.call('requests/'+u.id,'GET',null,'a'.repeat(64))).status,401);assert.equal((await t.call('requests/'+u.id,'GET',null,u.token)).status,200);assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{},u.token)).status,409);});
-test('validates the real word limit and prevents unsafe project URLs',()=>{assert.equal(validateProject({description:Array(1000).fill('word').join(' '),links:['https://example.com']}).links.length,1);assert.throws(()=>validateProject({description:Array(1001).fill('word').join(' '),links:['https://example.com']}),/1,000/);for(const link of ['javascript:alert(1)',['https://','username',':','secret','@example.com'].join('')])assert.throws(()=>validateProject({description:'Example',links:[link]}));});
+test('validates the real word limit and prevents unsafe project URLs',()=>{assert.equal(validateProject({description:Array(1000).fill('word').join(' '),links:['https://example.com']}).links.length,1);assert.throws(()=>validateProject({description:Array(1001).fill('word').join(' '),links:['https://example.com']}),/1,000/);for(const link of ['javascript:alert(1)','http://example.com/project',['https://','username',':','secret','@example.com'].join('')])assert.throws(()=>validateProject({description:'Example',links:[link]}));});
+test('JSON payloads must be objects rather than null, arrays, or primitives',async()=>{
+ const t=setup();
+ for(const payload of ['null','[]','42','"text"']){
+   const response=await handle(new Request('https://vibecheck.test/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:payload}),t.env);
+   assert.equal(response.status,400,payload);
+ }
+});
 test('deadline begins only after completion and editing never restarts it',async()=>{const t=setup(),u=await t.register();assert.equal((await t.submit(u,false)).data.expires_at,null);const sent=(await t.submit(u)).data;assert.equal(sent.status,'submitted');assert.equal(sent.expires_at-sent.completed_at,7*86400000);const edit=(await t.submit(u,false)).data;assert.equal(edit.expires_at,sent.expires_at);assert.equal(edit.status,'submitted');});
-test('approval requires admin auth and complete intake; missing Stripe cannot pretend success',async()=>{const t=setup(),u=await t.register();assert.equal((await t.approve(u)).status,409);await t.submit(u);assert.equal((await t.call('admin/requests/'+u.id,'POST',{action:'approve',scope:'Example'},'wrong')).status,401);assert.equal((await t.approve(u)).data.status,'approved');t.addSlot();assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{},u.token)).status,503);assert.equal(t.sql.prepare('SELECT paid_at FROM requests').get().paid_at,null);});
-test('Stripe checkout is bound to the approved request and checked server-side',async()=>{const t=setup(),u=await t.register();await t.submit(u);await t.approve(u);t.addSlot();t.env.STRIPE_SECRET_KEY='test-key';t.env.STRIPE_WEBHOOK_SECRET='test-webhook';let session={id:'cs_test_fixture',status:'open',payment_status:'unpaid',url:'https://checkout.stripe.com/test',metadata:{request_id:u.id},amount_total:2500,currency:'usd',mode:'payment'};t.env.FETCH=async(url,opts)=>{if(url.endsWith('/checkout/sessions')){assert.match(String(opts.body),/unit_amount%5D=2500/);assert.match(String(opts.body),new RegExp(u.id));}return Response.json(session);};assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{},u.token)).status,200);session={...session,payment_status:'paid',amount_total:1};assert.equal((await t.call('requests/'+u.id+'/verify-payment','POST',{},u.token)).status,409);session={...session,amount_total:2500};assert.equal((await t.call('requests/'+u.id+'/verify-payment','POST',{},u.token)).data.status,'paid');});
+test('approval requires admin auth and complete intake; missing Stripe cannot pretend success',async()=>{const t=setup(),u=await t.register();assert.equal((await t.approve(u)).status,409);await t.submit(u);assert.equal((await t.call('admin/requests/'+u.id,'POST',{action:'approve',scope:'Example'},'wrong')).status,401);assert.equal((await t.approve(u)).data.status,'approved');t.addSlot();assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{mode:'answer'},u.token)).status,503);assert.equal(t.sql.prepare('SELECT paid_at FROM requests').get().paid_at,null);});
+test('decline cannot close a request when a deposit starts after the admin payment check',async()=>{
+  const t=setup(),u=await t.register();await t.submit(u);assert.equal((await t.approve(u)).status,200);
+  const prepare=t.env.DB.prepare;let inserted=false;
+  t.env.DB.prepare=query=>{
+    if(!inserted&&query.includes("UPDATE requests SET status='declined'")){
+      inserted=true;
+      t.sql.prepare("INSERT INTO deposit_payments(id,request_id,review_mode,status,checkout_expires_at,stripe_payload,created_at) VALUES('racing-deposit',?,'answer','creating',?,'{}',?)").run(u.id,Date.now()+3600000,Date.now());
+    }
+    return prepare(query);
+  };
+  const result=await t.call(`admin/requests/${u.id}`,'POST',{action:'decline'},'test-admin');
+  t.env.DB.prepare=prepare;
+  assert.equal(inserted,true);assert.equal(result.status,409);
+  const row=t.sql.prepare('SELECT status,links,finished_at FROM requests WHERE id=?').get(u.id);
+  assert.equal(row.status,'approved');assert.equal(row.links,'["https://example.com/project"]');assert.equal(row.finished_at,null);
+  assert.equal(t.sql.prepare("SELECT status FROM deposit_payments WHERE id='racing-deposit'").get().status,'creating');
+});
+test('decline remains available after Stripe-confirmed deposit expiration',async()=>{
+  const t=setup(),u=await t.register();await t.submit(u);assert.equal((await t.approve(u)).status,200);
+  const now=Date.now();
+  t.sql.prepare("INSERT INTO deposit_payments(id,request_id,review_mode,status,session_id,checkout_expires_at,stripe_payload,created_at) VALUES('expired-deposit',?,'answer','expired','cs_expired',?,'{}',?)").run(u.id,now-1,now-3600000);
+  t.sql.prepare("UPDATE requests SET stripe_session_id='cs_expired' WHERE id=?").run(u.id);
+  assert.equal((await t.call(`admin/requests/${u.id}`,'POST',{action:'decline'},'test-admin')).status,200);
+  const row=t.sql.prepare('SELECT status,links,finished_at FROM requests WHERE id=?').get(u.id);
+  assert.equal(row.status,'declined');assert.equal(row.links,'[]');assert.ok(row.finished_at);
+});
+test('Stripe checkout is bound to the approved request and checked server-side',async()=>{const t=setup(),u=await t.register();await t.submit(u);await t.approve(u);const slotId=t.addSlot();t.env.STRIPE_SECRET_KEY='test-key';t.env.STRIPE_WEBHOOK_SECRET='test-webhook';let session;t.env.FETCH=async(url,opts)=>{if(url.endsWith('/checkout/sessions')){const values=new URLSearchParams(opts.body);assert.equal(values.get('line_items[0][price_data][unit_amount]'),'2500');assert.equal(values.get('metadata[request_id]'),u.id);assert.equal(values.get('managed_payments[enabled]'),'false');assert.equal(values.get('payment_method_types[0]'),null);session={id:'cs_test_fixture',status:'open',payment_status:'unpaid',url:'https://checkout.stripe.com/test',metadata:{request_id:u.id,deposit_payment_id:values.get('metadata[deposit_payment_id]'),review_mode:'call'},amount_total:2500,currency:'usd',mode:'payment'};}return Response.json(session);};assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{mode:'call',slotId},u.token)).status,200);session={...session,payment_status:'paid',amount_total:1};assert.equal((await t.call('requests/'+u.id+'/verify-payment','POST',{},u.token)).status,409);session={...session,amount_total:2500};const verified=await t.call('requests/'+u.id+'/verify-payment','POST',{},u.token);assert.equal(verified.data.status,'booked');assert.equal(verified.data.review_mode,'call');});
 test('booking rejects unpaid requests and reserves a slot only once',async()=>{const t=setup(),a=await t.register(),b=await t.register();const slotId=t.addSlot();assert.equal((await t.call('requests/'+a.id+'/book','POST',{slotId},a.token)).status,403);t.sql.prepare("UPDATE requests SET paid_at=?,status='paid'").run(Date.now());assert.equal((await t.call('requests/'+a.id+'/book','POST',{slotId},a.token)).data.status,'booked');assert.equal((await t.call('requests/'+b.id+'/book','POST',{slotId},b.token)).status,409);assert.equal((await t.call('requests/'+a.id+'/book','POST',{slotId},a.token)).data.booking.zoom_url,'https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0001');assert.equal((await t.call('requests/'+b.id+'/slots','GET',null,b.token)).data.slots.length,0);});
 test('expiry removes stored access at the cutoff, preserves paid projects, and tracks external cleanup',async()=>{const t=setup(),a=await t.register(),b=await t.register();await t.submit(a);await t.submit(b);const due=Date.now()+1000;t.sql.prepare('UPDATE requests SET expires_at=?').run(due);t.sql.prepare("UPDATE requests SET paid_at=?,status='paid' WHERE id=?").run(Date.now(),b.id);await t.call('admin/requests/'+a.id,'POST',{action:'track-access',provider:'figma',resource:'Private Figma invitation'},'test-admin');assert.equal((await expireUnpaid(t.env,due-1)).expired,0);assert.equal((await expireUnpaid(t.env,due)).expired,1);const row=t.sql.prepare('SELECT * FROM requests WHERE id=?').get(a.id);assert.equal(row.links,'[]');assert.equal(row.access_notes,'');assert.equal(row.status,'expired');assert.equal(t.sql.prepare('SELECT links FROM requests WHERE id=?').get(b.id).links,'["https://example.com/project"]');assert.equal(t.sql.prepare('SELECT state FROM access_grants').get().state,'cleanup_due');assert.equal((await expireUnpaid(t.env,due+1)).expired,0);});
 test('GitHub cleanup requires verified success and retries network failures',async()=>{const t=setup(),u=await t.register();await t.submit(u);await t.call('admin/requests/'+u.id,'POST',{action:'track-access',provider:'github',resource:'someone/project'},'test-admin');t.sql.prepare('UPDATE requests SET expires_at=?').run(Date.now()-1);t.env.GITHUB_ACCESS_TOKEN='test';t.env.GITHUB_USERNAME='ashrocket';t.env.FETCH=async()=>{throw new Error('Network unavailable');};await expireUnpaid(t.env);assert.equal(t.sql.prepare('SELECT state FROM access_grants').get().state,'cleanup_due');t.env.FETCH=async()=>new Response(null,{status:404});await expireUnpaid(t.env);assert.equal(t.sql.prepare('SELECT state FROM access_grants').get().state,'cleanup_due');t.env.FETCH=async()=>new Response(null,{status:204});await expireUnpaid(t.env);assert.equal(t.sql.prepare('SELECT state FROM access_grants').get().state,'removed');});
@@ -37,7 +100,7 @@ test('new deposits require both Stripe keys while existing payments can still re
   assert.equal((await t.call('admin/requests','GET',null,'test-admin')).data.payments,false);
   assert.equal((await t.call('requests/'+u.id,'GET',null,u.token)).data.payment_ready,false);
   let calls=0;t.env.FETCH=async()=>{calls++;throw new Error('Should not create checkout');};
-  assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{},u.token)).status,503);
+  assert.equal((await t.call('requests/'+u.id+'/checkout','POST',{mode:'answer'},u.token)).status,503);
   assert.equal(calls,0);
   t.sql.prepare("UPDATE requests SET stripe_session_id='cs_existing' WHERE id=?").run(u.id);
   t.env.FETCH=async()=>Response.json({payment_status:'paid',metadata:{request_id:u.id},amount_total:2500,currency:'usd',mode:'payment'});

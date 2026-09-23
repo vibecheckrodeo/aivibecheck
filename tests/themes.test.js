@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 const source = await readFile(new URL('../site/themes.js', import.meta.url), 'utf8');
 const html = await readFile(new URL('../site/index.html', import.meta.url), 'utf8');
 const css = await readFile(new URL('../site/themes.css', import.meta.url), 'utf8');
+const sharedCss = await readFile(new URL('../site/site.css', import.meta.url), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const styles = ['butter', 'geometric', 'ribbon', 'expressive-serif'];
 
@@ -84,8 +85,19 @@ test('no visible switcher remains; an empty live region and discreet shortcut hi
   assert.equal(p.root.dataset.theme, 'butter');
 });
 
-test('public copy does not expose internal implementation details', () => {
+test('public copy avoids fake window chrome and internal implementation details', () => {
+  assert.doesNotMatch(html, /hero-signal|signal-canvas|signal-node/);
+  assert.doesNotMatch(sharedCss, /content:\s*["']×["']/);
+  assert.doesNotMatch(sharedCss, /content:\s*["']ABOUT \/ ASHLEY["']/);
+  assert.doesNotMatch(sharedCss, /content:\s*["']STEP 0["']/);
   assert.doesNotMatch(html, /TypeSafe|System One|Jev/i);
+});
+
+test('the hero portrait is real content with restrained accessible motion', () => {
+  assert.match(html, /class="portrait-frame"><img src="\/ashley-portrait\.png" width="460" height="460" alt="Ashley Raiteri"/);
+  assert.match(sharedCss, /@keyframes portrait-orbit/);
+  assert.match(sharedCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.portrait-track \{ animation: none; \}/);
+  for (const id of styles.slice(1)) assert.match(css, new RegExp(`data-theme="${id}"\\] \\.portrait-`));
 });
 
 test('normal visits exclude every valid last style at both random boundaries and in between', async () => {
@@ -190,7 +202,11 @@ test('keyboard rotation visits only the four shortlisted styles and keeps other 
     assert.equal(p.history.state.vibecheckTheme.automatic, false);
     if (style !== 'butter') { assert.equal(p.active().length, 1); assert.ok(p.clip()); }
   }
-  assert.equal(p.loads.length, 2);
+  assert.deepEqual(p.loads.map(load => load.url), [
+    '/brand/four-serious-typographic-options.png',
+    '/brand/four-eye-serif-wave-conversation-options.png',
+    '/brand/expressive-serif-clean-k.png',
+  ]);
   assert.equal(p.active().length, 0);
 });
 
@@ -211,9 +227,10 @@ test('rapid cross-sheet choices and failures only commit the latest successful s
   for (const lateFailure of [false, true]) {
     const p = page({ query: '?theme=geometric' });
     p.advance(2);
-    assert.equal(p.loads.length, 2); assert.equal(p.writes.length, 0);
-    p.loads[1].resolve(); await settle();
-    if (lateFailure) p.loads[0].reject(); else p.loads[0].resolve();
+    assert.equal(p.loads.length, 3); assert.equal(p.writes.length, 0);
+    p.loads[2].resolve(); await settle();
+    if (lateFailure) p.loads[1].reject(); else p.loads[1].resolve();
+    p.loads[0].resolve();
     await settle();
     assert.equal(p.root.dataset.theme, 'expressive-serif');
     assert.equal(p.location.search, '?theme=expressive-serif');
@@ -267,4 +284,11 @@ test('all alternate palettes retain readable text contrast and an explicit headi
     const ratio = (luminance(paper) + .05) / (luminance(ink) + .05);
     assert.ok(ratio >= 4.5, `${id} text contrast is ${ratio}`);
   }
+});
+
+test('each named direction has its own structural treatment, not only a palette swap', () => {
+  assert.match(css, /data-theme="butter"\] \.agent-response/);
+  assert.match(css, /data-theme="geometric"\] \.process li::before/);
+  assert.match(css, /data-theme="ribbon"\] \.process ol/);
+  assert.match(css, /data-theme="expressive-serif"\] \.process ol/);
 });
