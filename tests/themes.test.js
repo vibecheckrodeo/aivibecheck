@@ -202,7 +202,11 @@ test('keyboard rotation visits only the four shortlisted styles and keeps other 
     assert.equal(p.history.state.vibecheckTheme.automatic, false);
     if (style !== 'butter') { assert.equal(p.active().length, 1); assert.ok(p.clip()); }
   }
-  assert.equal(p.loads.length, 2);
+  assert.deepEqual(p.loads.map(load => load.url), [
+    '/brand/four-serious-typographic-options.png',
+    '/brand/four-eye-serif-wave-conversation-options.png',
+    '/brand/expressive-serif-clean-k.png',
+  ]);
   assert.equal(p.active().length, 0);
 });
 
@@ -223,9 +227,10 @@ test('rapid cross-sheet choices and failures only commit the latest successful s
   for (const lateFailure of [false, true]) {
     const p = page({ query: '?theme=geometric' });
     p.advance(2);
-    assert.equal(p.loads.length, 2); assert.equal(p.writes.length, 0);
-    p.loads[1].resolve(); await settle();
-    if (lateFailure) p.loads[0].reject(); else p.loads[0].resolve();
+    assert.equal(p.loads.length, 3); assert.equal(p.writes.length, 0);
+    p.loads[2].resolve(); await settle();
+    if (lateFailure) p.loads[1].reject(); else p.loads[1].resolve();
+    p.loads[0].resolve();
     await settle();
     assert.equal(p.root.dataset.theme, 'expressive-serif');
     assert.equal(p.location.search, '?theme=expressive-serif');

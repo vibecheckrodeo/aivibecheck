@@ -22,7 +22,9 @@ test('Figma authorization uses only read scope and requires PKCE plus a substant
   assert.equal(url.searchParams.get('state'), state);
   assert.equal(url.searchParams.get('redirect_uri'), callback);
   assert.equal(url.searchParams.has('client_secret'), false);
-  for (const invalid of [{ state: 'short' }, { challenge: '' }, { redirectUri: ['https://', 'user:password', '@example.com/callback'].join('') }, { redirectUri: 'http://example.com/callback' }, { redirectUri: `${callback}#fragment` }]) {
+  const credentialUrl=new URL('https://example.com/callback');
+  credentialUrl.username='fixture-user';credentialUrl.password='fixture-password';
+  for (const invalid of [{ state: 'short' }, { challenge: '' }, { redirectUri: credentialUrl.href }, { redirectUri: 'http://example.com/callback' }, { redirectUri: `${callback}#fragment` }]) {
     assert.throws(() => authorizationUrl(setup(), { redirectUri: callback, state, challenge, ...invalid }), { status: 400 });
   }
 });

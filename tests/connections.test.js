@@ -5,12 +5,13 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {generateKeyPairSync,createHash,verify} from 'node:crypto';
 import {handle,expireUnpaid} from '../server/api.js';
 import {encrypt,decrypt} from '../server/vault.js';
+import {retryConnectionCleanup} from '../server/connections.js';
 
 function fixture(){
   const sql=new DatabaseSync(':memory:');
   for(const file of readdirSync('migrations').filter(v=>v.endsWith('.sql')).sort())sql.exec(readFileSync('migrations/'+file,'utf8'));
   const statement=(query,args=[])=>({bind(...values){return statement(query,values);},async first(){return sql.prepare(query).get(...args)||null;},async all(){return {results:sql.prepare(query).all(...args)};},async run(){return {meta:{changes:Number(sql.prepare(query).run(...args).changes)}};}});
-  const env={DB:{prepare:statement},ADMIN_TOKEN:'admin-test',INTEGRATION_ENCRYPTION_KEY:'1'.repeat(64),FIGMA_CLIENT_ID:'figma-client',FIGMA_CLIENT_SECRET:['figma', 'secret', 'fixture'].join('-'),FIGMA_PUBLIC_APPROVED:'true'};
+  const env={DB:{prepare:statement},ADMIN_TOKEN:'admin-test',INTEGRATION_ENCRYPTION_KEY:'1'.repeat(64),FIGMA_CLIENT_ID:'figma-client',FIGMA_CLIENT_SECRET:'figma-fixture',FIGMA_PUBLIC_APPROVED:'true'};
   const call=async(path,method='GET',data,token,cookie)=>{
     const response=await handle(new Request('https://vibecheck.test/api/'+path,{method,headers:{...(data?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...(cookie?{Cookie:cookie}:{})},body:data?JSON.stringify(data):undefined}),env);
     return {status:response.status,data:response.status===303?null:await response.json(),headers:response.headers};
@@ -54,6 +55,17 @@ test('closed or unapproved provider connections fail without provider calls',asy
   assert.equal((await t.call('requests/'+user.id+'/connect/github','POST',{url:'https://github.com/example/project'},user.token)).status,503);
   t.sql.prepare("UPDATE requests SET status='expired'").run();t.env.FIGMA_PUBLIC_APPROVED='true';
   assert.equal((await t.call('requests/'+user.id+'/connect/figma','POST',{url:'https://figma.com/design/Abc123/Test'},user.token)).status,409);
+});
+test('provider authorization and reads stop at the immutable draft cutoff and booked appointment end',async()=>{
+  const t=fixture(),draft=await t.register();
+  t.sql.prepare('UPDATE requests SET created_at=?,updated_at=? WHERE id=?').run(Date.now()-7*86400000-1,Date.now(),draft.id);
+  assert.equal((await t.call(`requests/${draft.id}/connect/figma`,'POST',{url:'https://figma.com/design/Abc123/Test'},draft.token)).status,409);
+  const booked=await t.register(),connection=await t.connect(booked);
+  const start=Date.now()-3600000;
+  t.sql.prepare('INSERT INTO slots(id,starts_at,ends_at,zoom_url,request_id,created_at) VALUES(?,?,?,?,?,?)').run('past-review',start,start+900000,'https://meet.proton.me/join/id-TESTROOM01#pwd-TESTPASS0001',booked.id,start-86400000);
+  t.sql.prepare("UPDATE requests SET status='booked',paid_at=?,booked_slot_id='past-review' WHERE id=?").run(start-86400000,booked.id);
+  assert.equal((await t.call(`requests/${booked.id}/connect/figma`,'POST',{url:'https://figma.com/design/Abc123/Test'},booked.token)).status,409);
+  assert.equal((await t.call(`admin/connections/${connection.id}/read`,'GET',null,'admin-test')).status,403);
 });
 test('one Figma account cannot be rebound to a different request',async()=>{
   const t=fixture(),first=await t.register(),second=await t.register();await t.connect(first);
@@ -125,10 +137,10 @@ function githubProvider(t,options={}){
       assert.equal(init.method,'POST');
       const expectedPermissions=body.repositories?{contents:'read',metadata:'read'}:{metadata:'read'};
       assert.deepEqual(body,body.repositories?{permissions:expectedPermissions,repositories:[repository.split('/')[1]]}:{permissions:expectedPermissions});
-      return Response.json({token:'github-installation-fixture',permissions:expectedPermissions},{status:201});
+      return Response.json({token:'install-fixture',permissions:expectedPermissions},{status:201});
     }
     if(url.pathname==='/installation/repositories'){
-      assert.equal(init.headers.Authorization,'Bearer ' + 'github-installation-fixture');
+      assert.equal(init.headers.Authorization,'Bearer install-fixture');
       if(options.beforeRepositoryResult)await options.beforeRepositoryResult();
       const actual=options.actualRepositories||[fullRepo];
       return Response.json({total_count:actual.length,repositories:actual});
@@ -139,7 +151,7 @@ function githubProvider(t,options={}){
       return new Response(null,{status:204});
     }
     if(url.pathname===`/repos/${repository}/contents`){
-      assert.equal(init.headers.Authorization,'Bearer ' + 'github-installation-fixture');
+      assert.equal(init.headers.Authorization,'Bearer install-fixture');
       if(options.beforeContentsResult)await options.beforeContentsResult();
       return Response.json({type:'file',encoding:'base64',content:'cHJpdmF0ZSBwcm9qZWN0'});
     }
@@ -213,7 +225,7 @@ test('GitHub install and OAuth states are browser-bound and single-use and bind 
   assert.deepEqual(JSON.parse(row.resource),{repository:'person/project',url:'https://github.com/person/project'});
   const visible=await t.call('requests/'+user.id+'/connections','GET',null,user.token);
   assert.equal(visible.data.connections[0].external_id,undefined);assert.equal(visible.data.connections[0].encrypted_credentials,undefined);
-  const serialized=JSON.stringify(visible.data);for(const secret of ['github-user-fixture','github-installation-fixture',githubConfig.clientSecret,'PRIVATE KEY'])assert.ok(!serialized.includes(secret));
+  const serialized=JSON.stringify(visible.data);for(const secret of ['github-user-fixture','install-fixture',githubConfig.clientSecret,'PRIVATE KEY'])assert.ok(!serialized.includes(secret));
 });
 
 test('unpaid deadline removes a connected GitHub installation through a verified DELETE 204',async()=>{
@@ -231,6 +243,19 @@ test('failed GitHub removal remains cleanup_due and scheduled retry verifies rem
   let row=t.sql.prepare('SELECT * FROM connections WHERE id=?').get(connection.id);assert.equal(row.state,'cleanup_due');assert.equal(row.external_id,'7');assert.equal(row.removed_at,null);assert.ok(unavailable.deletions>=1);
   const recovered=githubProvider(t);await expireUnpaid(t.env);row=t.sql.prepare('SELECT * FROM connections WHERE id=?').get(connection.id);
   assert.equal(row.state,'removed');assert.equal(recovered.deletions,1);assert.equal(row.last_error,null);
+});
+
+test('more than 100 failed connection removals cannot starve a later cleanup task',async()=>{
+  const t=fixture();
+  t.sql.prepare("INSERT INTO requests(id,token_hash,name,email,created_at,updated_at,ip_hash) VALUES('cleanup-request','fixture','Test','test@example.com',0,0,'fixture')").run();
+  const insert=t.sql.prepare("INSERT INTO connections(id,request_id,provider,external_id,resource,state,created_at) VALUES(?,'cleanup-request',?,?,'{}','cleanup_due',?)");
+  for(let i=0;i<100;i++)insert.run(`failed-${i}`,'github',String(i+1),i);
+  insert.run('later-figma','figma','later-account',100);
+  await retryConnectionCleanup(t.env,0);
+  assert.equal(t.sql.prepare("SELECT state FROM connections WHERE id='later-figma'").get().state,'cleanup_due');
+  await retryConnectionCleanup(t.env,900000);
+  assert.equal(t.sql.prepare("SELECT state FROM connections WHERE id='later-figma'").get().state,'removed');
+  assert.equal(t.sql.prepare("SELECT count(*) AS n FROM connections WHERE state='cleanup_due'").get().n,100);
 });
 
 test('a verified new installation with excessive scope is uninstalled and never becomes an active connection',async()=>{
@@ -278,7 +303,7 @@ test('two pending flows for one request keep the accepted GitHub installation an
 test('overdue connection routes preserve GitHub installation while Stripe payment is uncertain',async()=>{
   const t=fixture(),user=await t.register();await configureGitHub(t);const {connection,provider}=await connectGitHub(t,user);
   t.sql.prepare("UPDATE requests SET status='approved',completed_at=?,expires_at=?,stripe_session_id='cs_pending' WHERE id=?").run(Date.now()-8*86400000,Date.now()-1,user.id);
-  t.env.STRIPE_SECRET_KEY=['stripe', 'key', 'fixture'].join('-');const transport=t.env.FETCH;let stripeChecks=0;
+  t.env.STRIPE_SECRET_KEY='stripe-fixture';const transport=t.env.FETCH;let stripeChecks=0;
   t.env.FETCH=async(url,init)=>{if(new URL(url).origin==='https://api.stripe.com'){stripeChecks++;throw new Error('Stripe reconciliation unavailable');}return transport(url,init);};
   const result=await t.call('requests/'+user.id+'/connections','GET',null,user.token);assert.equal(result.status,200);
   assert.equal(t.sql.prepare('SELECT status FROM requests').get().status,'approved');assert.equal(t.sql.prepare('SELECT state FROM connections WHERE id=?').get(connection.id).state,'active');assert.equal(provider.deletions,0);

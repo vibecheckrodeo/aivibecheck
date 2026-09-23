@@ -8,7 +8,7 @@ function setup(){
   const element=()=>({value:'',textContent:'',children:[],handlers:{},disabled:false,hidden:false,append(child){this.children.push(child);},replaceChildren(){this.children=[];},addEventListener(name,fn){this.handlers[name]=fn;},setAttribute(){},querySelectorAll(){return this.children;}});
   const get=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);};
   const pending=[];
-  const context=vm.createContext({URLSearchParams,Intl,Date,console,localStorage:{getItem:()=>null},location:{search:'',hash:''},document:{getElementById:get,createElement:element},fetch:()=>new Promise((resolve,reject)=>pending.push({resolve:body=>resolve({ok:true,json:async()=>body}),reject}))});
+  const context=vm.createContext({URLSearchParams,Intl,Date,console,localStorage:{getItem:()=>null},location:{search:'',hash:''},document:{getElementById:get,createElement:element},fetch:path=>path==='/api/health'?Promise.resolve({ok:true,json:async()=>({payments:false,email:{transactional:false,marketing:false}})}):new Promise((resolve,reject)=>pending.push({resolve:body=>resolve({ok:true,json:async()=>body}),reject}))});
   vm.runInContext(readFileSync('site/intake.js','utf8'),context);
   vm.runInContext("id='synthetic';current={billing:{paid_cents:2500},payment_ready:true};",context);
   return{get,pending,context,load:minutes=>{get('review-minutes').value=String(minutes);return vm.runInContext('loadSlots()',context);}};
